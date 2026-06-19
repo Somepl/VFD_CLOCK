@@ -26,9 +26,11 @@
         .hex-display { font-size: 11px; color: #808080; text-align: center; font-family: monospace; word-break: break-all; }
 
         .frame-list { margin: 6px 0; max-height: 240px; overflow-y: auto; }
-        .frame-item { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-bottom: 1px solid #E0E0E0; font-size: 12px; }
+        .frame-item { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-bottom: 1px solid #E0E0E0; font-size: 12px; cursor: pointer; }
+        .frame-item:hover { background: #F5F5F5; }
+        .frame-item.selected { background: #FFE0B0; border-left: 3px solid #CC2200; }
         .frame-item .idx { color: #808080; font-size: 10px; width: 18px; flex-shrink: 0; }
-        .frame-item .mini-tube { display: inline-flex; gap: 0; flex-shrink: 0; }
+        .frame-item .mini-tube { display: inline-flex; gap: 0; flex-shrink: 0; pointer-events: none; }
         .frame-item .mini-tube span { display: inline-block; width: 6px; height: 10px; font-size: 7px; text-align: center; color: #808080; }
         .frame-item .mini-tube .dot { width: 10px; height: 10px; border: 1px solid #C0C0C0; display: inline-block; margin: 0 1px; }
         .frame-item .mini-tube .dot.on { background: #CC2200; border-color: #CC2200; }
@@ -92,9 +94,15 @@
             <input type="text" id="patternName" class="input" placeholder="图案名称" style="flex:1; min-width:80px; font-size:12px; padding:5px 8px;">
             <button class="btn" onclick="savePattern()">[ 保存图案 ]</button>
             <button class="btn btn-primary" onclick="showPattern()">[ 显示 ]</button>
+            <button class="btn" onclick="clearSegments()">[ 清空段 ]</button>
             <button class="btn" onclick="addFrame()">[ + 帧 ]</button>
             <input type="number" id="newFrameDur" value="300" min="50" max="10000" style="width:52px; font-size:11px; border:2px solid #808080; padding:2px 4px; font-family:monospace;">
             <span style="font-size:10px;color:#808080;">ms</span>
+        </div>
+        <div id="frameEditRow" style="display:none; margin-top:8px; align-items:center; gap:6px; flex-wrap:wrap;">
+            <span style="font-size:12px;color:#808080;">← <span id="editFrameLabel"></span></span>
+            <button class="btn btn-primary" onclick="updateFrame()">[ 更新帧 ]</button>
+            <button class="btn" onclick="cancelFrameEdit()">[ 取消 ]</button>
         </div>
     </div>
 
@@ -110,15 +118,16 @@
             <button class="btn" onclick="playAnim()">[ ▶ 播放 ]</button>
             <button class="btn" onclick="clearFrames()">[ 清空帧 ]</button>
         </div>
-        <div class="hint">提示：编辑器中的段状态 + 时长 → [ + 帧 ] 添加；帧可拖动序号排序。</div>
+        <div class="hint">提示：点击帧载入段编辑器修改 → [ 更新帧 ]；拖动序号排序。</div>
     </div>
 
-    <!-- ===== 发送数字 ===== -->
+    <!-- ===== 发送数字 / 恢复时间 ===== -->
     <div class="editor-panel">
         <h2>[ 发送数字 ]</h2>
         <div style="display:flex;gap:6px;align-items:center;">
             <input type="number" id="numberInput" value="1234" min="0" max="9999" style="flex:1;font-family:monospace;font-size:28px;text-align:center;letter-spacing:4px;border:2px solid #808080;padding:6px;background:#FFF;">
             <button class="btn btn-primary" onclick="sendNumber()">[ 发送 ]</button>
+            <button class="btn" onclick="recoverTime()">[ 恢复时间 ]</button>
         </div>
         <div class="hint">在数码管上显示 4 位数字（0-9999），30 秒后自动恢复时间</div>
     </div>
@@ -221,6 +230,10 @@ function setData(data) {
     updateHex();
 }
 
+function clearSegments() {
+    setData([0xFF, 0xFF, 0xFF, 0xFF]);
+}
+
 // ============================================================
 // 图案
 // ============================================================
@@ -257,6 +270,7 @@ function loadPatternToEditor(id) {
 // 帧序列管理
 // ============================================================
 let frames = [];
+let _editingFrameIdx = null;
 
 function addFrame() {
     frames.push({ data: [...tubeData], duration: parseInt(document.getElementById('newFrameDur').value) || 300 });
@@ -265,6 +279,11 @@ function addFrame() {
 
 function removeFrame(idx) {
     frames.splice(idx, 1);
+    if (_editingFrameIdx !== null) {
+        if (_editingFrameIdx >= frames.length) {
+            _editingFrameIdx = frames.length > 0 ? frames.length - 1 : null;
+        }
+    }
     renderFrames();
 }
 
@@ -272,12 +291,53 @@ function moveFrame(idx, dir) {
     const to = idx + dir;
     if (to < 0 || to >= frames.length) return;
     [frames[idx], frames[to]] = [frames[to], frames[idx]];
+    if (_editingFrameIdx === idx) {
+        _editingFrameIdx = to;
+    } else if (_editingFrameIdx === to) {
+        _editingFrameIdx = idx;
+    }
     renderFrames();
 }
 
 function clearFrames() {
     frames = [];
+    _editingFrameIdx = null;
     renderFrames();
+    updateFrameEditRow();
+}
+
+function selectFrame(idx) {
+    _editingFrameIdx = idx;
+    const f = frames[idx];
+    if (f) setData(f.data);
+    renderFrames();
+    updateFrameEditRow();
+}
+
+function updateFrame() {
+    if (_editingFrameIdx === null) {
+        alert('请先在帧序列中点击选择一帧');
+        return;
+    }
+    frames[_editingFrameIdx].data = [...tubeData];
+    renderFrames();
+}
+
+function cancelFrameEdit() {
+    _editingFrameIdx = null;
+    renderFrames();
+    updateFrameEditRow();
+}
+
+function updateFrameEditRow() {
+    const row = document.getElementById('frameEditRow');
+    const label = document.getElementById('editFrameLabel');
+    if (_editingFrameIdx !== null && _editingFrameIdx < frames.length) {
+        row.style.display = 'flex';
+        label.textContent = '正在编辑 #' + (_editingFrameIdx + 1) + ' 帧';
+    } else {
+        row.style.display = 'none';
+    }
 }
 
 let dragIdx = null;
@@ -292,7 +352,7 @@ function renderFrames() {
     container.innerHTML = '';
     frames.forEach((f, i) => {
         const div = document.createElement('div');
-        div.className = 'frame-item';
+        div.className = 'frame-item' + (i === _editingFrameIdx ? ' selected' : '');
         div.draggable = true;
         div.dataset.idx = i;
 
@@ -316,11 +376,17 @@ function renderFrames() {
             <span class="hex">${hex}</span>
             <input type="number" class="dur-input" value="${f.duration}" min="50" max="10000" data-idx="${i}">
             <span style="font-size:9px;color:#808080;">ms</span>
-            <button class="btn btn-sm" onclick="moveFrame(${i},-1)">[▲]</button>
-            <button class="btn btn-sm" onclick="moveFrame(${i},1)">[▼]</button>
-            <button class="btn btn-sm" onclick="removeFrame(${i})">[✕]</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation(); moveFrame(${i},-1)">[▲]</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation(); moveFrame(${i},1)">[▼]</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation(); removeFrame(${i})">[✕]</button>
         `;
         container.appendChild(div);
+
+        // Click to select frame for editing
+        div.addEventListener('click', function(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+            selectFrame(parseInt(this.dataset.idx));
+        });
 
         // Drag events for reordering
         div.addEventListener('dragstart', function(e) {
@@ -338,6 +404,11 @@ function renderFrames() {
             if (from !== to) {
                 const item = frames.splice(from, 1)[0];
                 frames.splice(to, 0, item);
+                if (_editingFrameIdx === from) {
+                    _editingFrameIdx = to;
+                } else if (_editingFrameIdx === to) {
+                    _editingFrameIdx = from + (from > to ? 1 : -1);
+                }
                 renderFrames();
             }
             dragIdx = null;
@@ -366,7 +437,9 @@ async function saveAnim() {
         });
         document.getElementById('animName').value = '';
         frames = [];
+        _editingFrameIdx = null;
         renderFrames();
+        updateFrameEditRow();
         loadAnimations();
     } catch(e) { alert('保存失败: ' + e.message); }
 }
@@ -392,7 +465,9 @@ function loadAnimToEditor(id) {
     const a = list.find(x => x.id === id);
     if (a) {
         frames = a.frames.map(f => ({ data: [...f.data], duration: f.duration }));
+        _editingFrameIdx = null;
         renderFrames();
+        updateFrameEditRow();
     }
 }
 
@@ -442,6 +517,7 @@ function renderBuiltinGrid() {
 
 function selectBuiltin(id) {
     _selectedBuiltinId = id;
+    _editingFrameIdx = null;
     renderBuiltinGrid();
     updateBuiltinInfo();
 
@@ -523,12 +599,10 @@ async function deleteBuiltinOverride() {
 async function playBuiltinAnim() {
     if (_selectedBuiltinId < 0) return;
     if (_selectedBuiltinId <= 5) {
-        // Web animation types (0-5)
         try {
             await fetchJson('/api/display/animation', 'POST', { type: _selectedBuiltinId });
         } catch(e) {}
     } else {
-        // Play frames directly
         if (frames.length === 0) return;
         try {
             await fetchJson('/api/display/anim-play', 'POST', {
@@ -614,7 +688,7 @@ async function loadAnimations() {
 }
 
 // ============================================================
-// 发送数字
+// 发送数字 / 恢复时间
 // ============================================================
 async function sendNumber() {
     const val = parseInt(document.getElementById('numberInput').value);
@@ -623,6 +697,12 @@ async function sendNumber() {
         await fetchJson('/api/display/number', 'POST', { number: val });
         document.getElementById('numberInput').value = val;
     } catch(e) { alert('发送失败: ' + e.message); }
+}
+
+async function recoverTime() {
+    try {
+        await fetchJson('/api/display/recover', 'POST', {});
+    } catch(e) { alert('恢复失败: ' + e.message); }
 }
 
 // ============================================================
