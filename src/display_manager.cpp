@@ -616,7 +616,8 @@ void display_show_weather_with_anim(const char* weatherText, int16_t temperature
         weatherAnimType = WEATHER_ANIM_SUN;
     } else if (strstr(weatherText, "雨") != nullptr) {
         weatherAnimType = WEATHER_ANIM_RAIN;
-    } else if (strstr(weatherText, "云") != nullptr) {
+    } else if (strstr(weatherText, "云") != nullptr ||
+               strstr(weatherText, "阴") != nullptr) {
         weatherAnimType = WEATHER_ANIM_CLOUD;
     } else if (strstr(weatherText, "雪") != nullptr) {
         weatherAnimType = WEATHER_ANIM_SNOW;
