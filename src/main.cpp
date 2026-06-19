@@ -25,24 +25,13 @@ unsigned long lastDisplayUpdate = 0;
 // 按键回调函数
 // ============================================================
 
-// --- 按键1：WiFi 配网 ---
+// --- 按键1：屏幕开关 ---
 void on_button1_short_press() {
-    WiFiState state = wifi_get_state();
-    if (state == WIFI_AP_ACTIVE || state == WIFI_AP_CONNECTED) {
-        // AP 模式关闭 AP
-        wifi_disable_ap();
-    } else {
-        // 其他状开AP 配网
-        wifi_enable_ap();
-    }
+    display_toggle_power();
 }
 
 void on_button1_long_press() {
-    // 长按 -> 清除 WiFi 凭据
-    Serial.println(F("[主控] 按键1长按：清除WiFi凭据"));
-    wifi_clear_credentials();
-    // 清除后自动进入 AP 模式，方便重新配置
-    wifi_enable_ap();
+    // 无功能
 }
 
 // --- 按键2：天气 ---
@@ -56,13 +45,19 @@ void on_button2_long_press() {
     weather_toggle_unit();
 }
 
-// --- 按键3：屏幕开关/ 夜间唤醒 ---
+// --- 按键3：AP 配网（长按） ---
 void on_button3_short_press() {
-    display_toggle_power();
+    // 无功能
 }
 
 void on_button3_long_press() {
-    // 按键3无长按功能
+    Serial.println(F("[主控] 按键3长按：切换AP模式"));
+    WiFiState state = wifi_get_state();
+    if (state == WIFI_AP_ACTIVE || state == WIFI_AP_CONNECTED) {
+        wifi_disable_ap();
+    } else {
+        wifi_enable_ap();
+    }
 }
 
 // ============================================================

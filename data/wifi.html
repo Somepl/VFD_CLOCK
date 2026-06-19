@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WiFi 配网 - CLOCK</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .saved-wifi { background: #FFF; border: 2px solid #808080; padding: 10px 14px; margin-bottom: 12px; }
+        .saved-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #E0E0E0; }
+        .saved-row:last-child { border-bottom: none; }
+        .saved-row .ssid { font-family: monospace; font-size: 13px; flex: 1; }
+        .saved-row .actions { display: flex; gap: 4px; flex-shrink: 0; }
+        .empty-saved { color: #C0C0C0; font-size: 12px; padding: 8px 0; text-align: center; }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -12,6 +20,13 @@
             <h1>[ WiFi 配网 ]</h1>
             <a href="/" class="btn btn-sm">[ &lt; 返回 ]</a>
         </header>
+
+        <section class="saved-wifi">
+            <h2>已保存的 WiFi</h2>
+            <div id="savedSection">
+                <div class="empty-saved">加载中...</div>
+            </div>
+        </section>
 
         <section class="panel">
             <h2>扫描网络</h2>
@@ -21,7 +36,7 @@
         </section>
 
         <section class="panel">
-            <h2>连接</h2>
+            <h2>连接新网络</h2>
             <div class="form-group">
                 <label>WiFi 名称 (SSID):</label>
                 <input type="text" id="ssidInput" class="input" placeholder="点击上方列表自动填入">
@@ -56,6 +71,47 @@
             }
         }
 
+        async function loadSaved() {
+            try {
+                const data = await fetchJson('/api/wifi/saved');
+                const container = document.getElementById('savedSection');
+                if (data.ssid && data.ssid.length > 0) {
+                    container.innerHTML = '<div class="saved-row">' +
+                        '<span class="ssid">' + data.ssid + '</span>' +
+                        '<div class="actions">' +
+                            '<button class="btn btn-sm" onclick="connectSaved()">[ 连接 ]</button>' +
+                            '<button class="btn btn-sm" onclick="forgetSaved()">[ 删除 ]</button>' +
+                        '</div></div>';
+                } else {
+                    container.innerHTML = '<div class="empty-saved">暂无已保存的 WiFi</div>';
+                }
+            } catch (e) {}
+        }
+
+        async function connectSaved() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '[ 连接中... ]';
+            try {
+                const data = await fetchJson('/api/wifi/saved');
+                if (data.ssid) {
+                    await fetchJson('/api/wifi/connect', 'POST', { ssid: data.ssid, password: '' });
+                    document.getElementById('connectStatus').textContent = '正在连接 ' + data.ssid + ' ...';
+                }
+            } catch (e) {}
+            btn.disabled = false;
+            btn.textContent = '[ 连接 ]';
+        }
+
+        async function forgetSaved() {
+            if (!confirm('确定删除已保存的 WiFi 凭据？')) return;
+            try {
+                await fetchJson('/api/wifi/forget', 'POST', {});
+                loadSaved();
+                document.getElementById('connectStatus').textContent = '凭据已删除';
+            } catch (e) {}
+        }
+
         async function scanNetworks() {
             const btn = document.getElementById('scanBtn');
             const status = document.getElementById('scanStatus');
@@ -72,7 +128,7 @@
                     status.textContent = '未发现网络';
                 } else {
                     status.textContent = '发现 ' + networks.length + ' 个网络，点击选择：';
-                    networks.sort((a, b) => a.rssi - b.rssi); // 信号强的排前面
+                    networks.sort((a, b) => a.rssi - b.rssi);
                     networks.forEach(net => {
                         const row = document.createElement('div');
                         row.className = 'network-row';
@@ -80,7 +136,6 @@
                         row.innerHTML = icon + ' ' + net.ssid + ' <span class="rssi">(' + net.rssi + ' dBm)</span>';
                         row.onclick = () => {
                             document.getElementById('ssidInput').value = net.ssid;
-                            // 高亮选中行
                             document.querySelectorAll('.network-row.selected').forEach(el => el.classList.remove('selected'));
                             row.classList.add('selected');
                         };
@@ -114,7 +169,7 @@
                 const result = await fetchJson('/api/wifi/connect', 'POST', { ssid, password });
                 if (result.success) {
                     status.textContent = '连接成功！IP 地址可能已变更，请用新地址访问';
-                    // 如果已连接STA，3秒后尝试跳转到 clock.local
+                    loadSaved();
                     setTimeout(() => {
                         updateStatus();
                     }, 3000);
@@ -129,9 +184,11 @@
             btn.textContent = '[ 保存并连接 ]';
         }
 
-        // 页面加载时更新状态
         setInterval(updateStatus, 5000);
-        window.addEventListener('DOMContentLoaded', updateStatus);
+        window.addEventListener('DOMContentLoaded', () => {
+            updateStatus();
+            loadSaved();
+        });
     </script>
 </body>
 </html>

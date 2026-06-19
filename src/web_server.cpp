@@ -206,10 +206,24 @@ void web_server_init() {
 
     // WiFi 扫描
     server.on("/api/wifi/scan", HTTP_GET, [](AsyncWebServerRequest *request) {
-        WiFi.scanNetworks(true);  // true = 异步扫描
-        delay(2000);
+        WiFi.scanDelete();
+        WiFi.scanNetworks(false);  // 同步扫描，确保返回完整结果
         String json = buildScanJson();
         request->send(200, "application/json", json);
+    });
+
+    // 获取已保存的 WiFi 凭据
+    server.on("/api/wifi/saved", HTTP_GET, [](AsyncWebServerRequest *request) {
+        String ssid = wifi_get_saved_ssid();
+        char buf[128];
+        snprintf(buf, sizeof(buf), "{\"ssid\":\"%s\"}", ssid.c_str());
+        request->send(200, "application/json", buf);
+    });
+
+    // 删除已保存的 WiFi 凭据
+    server.on("/api/wifi/forget", HTTP_POST, [](AsyncWebServerRequest *request) {
+        wifi_clear_credentials();
+        request->send(200, "application/json", "{\"success\":true}");
     });
 
     // WiFi 连接（配网提交）
