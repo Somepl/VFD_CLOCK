@@ -779,7 +779,7 @@ void display_anim_tick() {
                 // 使用覆写：逐帧推进
                 if (now - wthrOvLastMs >= wthrOvDur[wthrOvIdx]) {
                     wthrOvIdx++;
-                    if (wthrOvIdx >= wthrOvCount) wthrOvIdx = wthrOvCount - 1;
+                    if (wthrOvIdx >= wthrOvCount) wthrOvIdx = 0;
                     wthrOvLastMs = now;
                 }
                 segs_write(wthrOvData[wthrOvIdx]);
