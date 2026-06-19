@@ -1,9 +1,9 @@
 /**
  * display_manager.cpp - 数码管显示管理器 实现
  *
- * 复用用户原有代码中的 *   - num[10] 七段数码管段码表-9 *   - ShiftRegister74HC595<4> 驱动线SPI *   - DS3231 RTC 读写（RTClib *   - 数字翻页动画
+ * 复用用户原有代码中的   - num[10] 七段数码管段码表0-9   - ShiftRegister74HC595<4> 驱动3线SPI   - DS3231 RTC 读写（RTClib）   - 数字翻页动画
  *
- * 改造点： *   - 移除 FreeRTOS 任务，改丽isplay_update() loop() 中调用 *   - 新增 4 种显示模式状态机
+ * 改造点：   - 移除 FreeRTOS 任务，改在 display_update() loop() 中调用   - 新增 4 种显示模式状态机
  *   - 天气/数字显示时自动格式化
  */
 
@@ -21,8 +21,10 @@ static ShiftRegister74HC595<4> sr(PIN_DATA, PIN_CLK, PIN_LATCH);
 static RTC_DS3231 rtc;
 
 // ============================================================
-// 七段数码管段码表-9// 段位定义：a-g + dp，共阳极（0=亮 1=灭）
+// 七段数码管段码表0-9 + H段
+// 段位定义：a-g + h，共阳极（0=亮 1=灭）
 // 用户原有代码中的 num[10]
+// 位映射: bit7=A  bit6=B  bit5=C  bit4=D  bit3=E  bit2=F  bit1=G  bit0=H
 // ============================================================
 
 static const uint8_t SEGMENTS[10] = {
@@ -38,43 +40,35 @@ static const uint8_t SEGMENTS[10] = {
     B00001001   // 9
 };
 
-/** 全灭（所有段 = 不亮*/
+/** 全灭（所有段 = 不亮）*/
 static const uint8_t SEGMENT_BLANK = B11111111;
 
 // ============================================================
 // 天气动画帧数据
-// 4 位数码管 × 7段，每帧 = 4 个字节，每字节控制 1 位数码管
+// 4 位数码管 x 7段+h，每帧 = 4 个字节，每字节控制 1 位数码管
 // 共阳极：0=亮 1=灭
-// 使用用户原有代码中的动画帧：
-//   ☀Sunshine (双帧太阳闪烁)
-//   多云 ☁️ Love (爱心滚动)
-//   🌧Raining (雨滴级联 两阶
-//   ❄️ / ⛈️ Love (爱心滚动)
-//   默认 Love (爱心滚动)
 // ============================================================
 
 /** 全灭 = 所有段熄灭 */
 #define ALL_OFF 0xFF
 
-/** Sunshine 双帧太阳（用户原有） */
+/** Sunshine 双帧太阳（用户原有，H 段在光芒帧亮） */
 static const uint8_t ANIM_SUNNY[2][4] = {
-    {B01101101, B01100011, B00001111, B01101101},  // sun1：带光芒的太阳
-    {B11111111, B01100011, B00001111, B11111111},  // sun2：光芒熄灭
+    {B01101100, B01100010, B00001110, B01101100},  // sun1：带光芒的太阳 + H亮
+    {B11111111, B01100011, B00001111, B11111111},  // sun2：光芒熄灭 + H灭
 };
 
-/** Raining 雨滴级联（用户原有） */
+/** Raining 雨滴级联（用户原有，H 段在中间帧亮起模拟水花） */
 static const uint8_t ANIM_RAINY[6][4] = {
     {B10111111, B10111111, B10111111, B10111111},  // rain1：左上段
-    {B11011111, B11011111, B11011111, B11011111},  // rain2：中间
+    {B11011110, B11011110, B11011110, B11011110},  // rain2：中间 + H亮（水花）
     {ALL_OFF,   ALL_OFF,   ALL_OFF,   ALL_OFF   },  // 间歇
     {B11111011, B11111011, B11111011, B11111011},  // rain3：右下段
-    {B11011111, B11011111, B11011111, B11011111},  // rain2：中间
+    {B11011110, B11011110, B11011110, B11011110},  // rain4：中间 + H亮
     {ALL_OFF,   ALL_OFF,   ALL_OFF,   ALL_OFF   },  // 间歇
 };
 
 /** 爱心滚动（用户原有 Love 动画）*/
-// love[5] 基础图案：{B11100011, B00000011, B11000111, B01100001, B11111111}
-// 6 帧滑动窗口
 static const uint8_t LOVE_FRAMES[6][4] = {
     {B11100011, B00000011, B11000111, B01100001},
     {B11111111, B11100011, B00000011, B11000111},
@@ -100,6 +94,38 @@ static const uint8_t ANIM_SAD[2][4] = {
 static const uint8_t ANIM_NOL[2][4] = {
     {B11111111, B01000100, B01000100, B11111111},  // 无表情
     {ALL_OFF,   ALL_OFF,   ALL_OFF,   ALL_OFF   },  // 闭眼
+};
+
+/** 多云飘移 4 帧 - 云团从右向左移动，H 段在云团右缘亮起 */
+static const uint8_t ANIM_CLOUDY[4][4] = {
+    {B01111110, B00111111, B11111111, B11111111},  // 云在左 (位0-1) + H亮
+    {B11111111, B01111110, B00111111, B11111111},  // 云在左中 (位1-2) + H亮
+    {B11111111, B11111111, B01111110, B00111111},  // 云在右中 (位2-3) + H亮
+    {B11111111, B11111111, B11111111, B11111111},  // 全灭（间歇）
+};
+
+/** 雪花飘落 4 帧 - H 段在不同位闪烁模拟雪花 */
+static const uint8_t ANIM_SNOW[4][4] = {
+    {B11111110, B11111111, B11111111, B11111111},  // 雪在位0
+    {B11111111, B11111110, B11111111, B11111111},  // 雪在位1
+    {B11111111, B11111111, B11111110, B11111111},  // 雪在位2
+    {B11111111, B11111111, B11111111, B11111110},  // 雪在位3
+};
+
+/** 雷阵雨闪电 4 帧 - 全亮闪烁模拟闪电 */
+static const uint8_t ANIM_THUNDER[4][4] = {
+    {B00000000, B00000000, B00000000, B00000000},  // 全亮（含H）→ 闪电闪白
+    {B00000001, B00000001, B00000001, B00000001},  // A~G亮、H灭 → 闪电稍弱
+    {ALL_OFF,   ALL_OFF,   ALL_OFF,   ALL_OFF   },  // 全灭（黑暗）
+    {ALL_OFF,   ALL_OFF,   ALL_OFF,   ALL_OFF   },  // 全灭（等待）
+};
+
+/** 默认扫描 4 帧 - B段+H 在4位间从左到右扫描 */
+static const uint8_t ANIM_DEFAULT[4][4] = {
+    {B01111110, B11111111, B11111111, B11111111},  // 位0 B+H亮
+    {B11111111, B01111110, B11111111, B11111111},  // 位1 B+H亮
+    {B11111111, B11111111, B01111110, B11111111},  // 位2 B+H亮
+    {B11111111, B11111111, B11111111, B01111110},  // 位3 B+H亮
 };
 
 // ============================================================
@@ -170,17 +196,17 @@ static unsigned long userAnimFrameStart = 0;
 // 天气动画状态（播放完自动切到温度）
 #define WEATHER_ANIM_NONE    0
 #define WEATHER_ANIM_SUN     1     // Sunshine
-#define WEATHER_ANIM_CLOUD   2     // 多云 Love
+#define WEATHER_ANIM_CLOUD   2     // 多云
 #define WEATHER_ANIM_RAIN    3     // Raining
-#define WEATHER_ANIM_SNOW    4     // Love
-#define WEATHER_ANIM_THUNDER 5     // 雷阵Love
-#define WEATHER_ANIM_DEFAULT 6     // 默认 Love
+#define WEATHER_ANIM_SNOW    4     // 雪
+#define WEATHER_ANIM_THUNDER 5     // 雷阵
+#define WEATHER_ANIM_DEFAULT 6     // 默认扫描
 static uint8_t weatherAnimType = WEATHER_ANIM_NONE;
 static unsigned long weatherAnimStartTime = 0;
 static int16_t weatherDisplayTemp = 0;     // 动画结束后显示的温度
 static uint8_t animCycleIndex = 0;         // 动画循环索引(按键2切换)
 static int16_t lastAnimTemp = 0;           // 最近一次天气温度，循环动画时保持
-#define WEATHER_ANIM_DURATION  3000  // 动画播放时长(ms) 延长
+#define WEATHER_ANIM_DURATION  3000  // 动画播放时长(ms)
 // ============================================================
 // 内部辅助函数
 // ============================================================
@@ -240,9 +266,7 @@ static void number_to_digits(uint16_t num, uint8_t d[4]) {
 }
 
 /**
- * 将温度值格式化为 4 位显示 * 显示规则：正数 " XX°"（°用特殊段码），负数 "-XX°"
- * 简单策略：温度直接显示为 " XX" 两个数字，摄氏度用 C 表示
- * 实际用 4 位显示：如 " 25"（前两位置空，后两位显示温度） */
+ * 将温度值格式化为 4 位显示 * 显示规则：正数 " XX"（2位数字），负数 "-XX" */
 static void temperature_to_digits(int16_t temp, uint8_t d[4]) {
     // 温度范围限制：-9 ~ 99
     if (temp < -9) temp = -9;
@@ -409,7 +433,7 @@ void display_update() {
         break;
 
     case DISPLAY_WEATHER: {
-        // --- 优先：检查是否在播天气动画 ---
+        // --- 检查天气动画超时 ---
         if (weatherAnimType != WEATHER_ANIM_NONE) {
             unsigned long elapsed = millis() - weatherAnimStartTime;
             if (elapsed >= WEATHER_ANIM_DURATION) {
@@ -419,33 +443,14 @@ void display_update() {
                 weatherStartTime = millis();
                 Serial.printf("[显示] 动画结束，显示温度 %d\n", weatherDisplayTemp);
             } else {
-                // 播动画帧：根据动画类型查找
-                const uint8_t (*frames)[4] = nullptr;
-                uint8_t frameCount = 0;
-                uint16_t frameMs = 150;
-
-                // 用户原有动画时序
-                switch (weatherAnimType) {
-                case WEATHER_ANIM_SUN:
-                    frames = ANIM_SUNNY; frameCount = 2; frameMs = 400; break;
-                case WEATHER_ANIM_RAIN:
-                    frames = ANIM_RAINY; frameCount = 6; frameMs = 150; break;
-                default:  // 默认 爱心滚动
-                    frames = LOVE_FRAMES; frameCount = 6; frameMs = 180; break;
-                }
-
-                if (frames != nullptr) {
-                    int idx = (elapsed / frameMs) % frameCount;
-                    segs_write(frames[idx]);
-                }
-                return;
+                return;  // 动画进行中，由 anim_tick 绘制帧
             }
         }
 
         // --- 检查是否超时（15秒自动恢复） ---
         if (millis() - weatherStartTime >= WEATHER_DISPLAY_MS) {
             displayMode = DISPLAY_TIME;
-            firstRefresh = true;  // 回到时间模式时强制刷新
+            firstRefresh = true;
         } else if ((int16_t)userNumber == -99) {
             // 天气获取失败 -> 显示 "----"
             uint8_t dash[4] = {B11111101, B11111101, B11111101, B11111101};
@@ -471,7 +476,7 @@ void display_update() {
 
     case DISPLAY_NUMBER:
         number_to_digits(userNumber, d);
-        write_digits_static(d);  // 静态显示，无动画
+        write_digits_static(d);
         break;
 
     case DISPLAY_ANIMATION: {
@@ -479,30 +484,8 @@ void display_update() {
         if (elapsed >= WEB_ANIM_DURATION) {
             displayMode = DISPLAY_TIME;
             firstRefresh = true;
-            break;
         }
-        const uint8_t (*frames)[4] = nullptr;
-        uint8_t frameCount = 0;
-        uint16_t frameMs = 300;
-
-        switch (webAnimType) {
-        case WEB_ANIM_SUNSHINE:
-            frames = ANIM_SUNNY; frameCount = 2; frameMs = 400; break;
-        case WEB_ANIM_RAINING:
-            frames = ANIM_RAINY; frameCount = 6; frameMs = 150; break;
-        case WEB_ANIM_LOVE:
-            frames = LOVE_FRAMES; frameCount = 6; frameMs = 180; break;
-        case WEB_ANIM_SMILE:
-            frames = ANIM_SMILE; frameCount = 2; frameMs = 300; break;
-        case WEB_ANIM_SAD:
-            frames = ANIM_SAD; frameCount = 2; frameMs = 300; break;
-        case WEB_ANIM_NOL:
-            frames = ANIM_NOL; frameCount = 2; frameMs = 300; break;
-        }
-        if (frames != nullptr) {
-            int idx = (elapsed / frameMs) % frameCount;
-            segs_write(frames[idx]);
-        }
+        // 动画帧由 anim_tick 绘制
         break;
     }
 
@@ -521,19 +504,8 @@ void display_update() {
         if (userAnimFrameCount == 0) {
             displayMode = DISPLAY_TIME;
             firstRefresh = true;
-            break;
         }
-        unsigned long elapsed = millis() - userAnimFrameStart;
-        if (elapsed >= userAnimBuffer[userAnimFrameIdx].duration) {
-            userAnimFrameIdx++;
-            if (userAnimFrameIdx >= userAnimFrameCount) {
-                displayMode = DISPLAY_TIME;
-                firstRefresh = true;
-                break;
-            }
-            userAnimFrameStart = millis();
-        }
-        segs_write(userAnimBuffer[userAnimFrameIdx].data);
+        // 动画帧由 anim_tick 绘制
         break;
     }
 
@@ -572,23 +544,28 @@ void display_show_weather(int16_t temperature) {
     lastAnimTemp = temperature;
     weatherStartTime = millis();
     weatherAnimType = WEATHER_ANIM_NONE;
-    Serial.printf("[显示] 显示天气温度: %d°\n", temperature);
+    Serial.printf("[显示] 显示天气温度: %d\n", temperature);
     display_set_mode(DISPLAY_WEATHER);
 }
 
 void display_show_weather_with_anim(const char* weatherText, int16_t temperature) {
-    // 根据天气文字选择动画类型（使用用户原有动画）
-    weatherAnimType = WEATHER_ANIM_CLOUD;  // 默认雨爱心滚动
+    weatherAnimType = WEATHER_ANIM_DEFAULT;  // 默认扫描
     if (strstr(weatherText, "晴") != nullptr) {
-        weatherAnimType = WEATHER_ANIM_SUN;  // Sunshine
+        weatherAnimType = WEATHER_ANIM_SUN;
     } else if (strstr(weatherText, "雨") != nullptr) {
-        weatherAnimType = WEATHER_ANIM_RAIN;  // Raining
+        weatherAnimType = WEATHER_ANIM_RAIN;
+    } else if (strstr(weatherText, "云") != nullptr) {
+        weatherAnimType = WEATHER_ANIM_CLOUD;
+    } else if (strstr(weatherText, "雪") != nullptr) {
+        weatherAnimType = WEATHER_ANIM_SNOW;
+    } else if (strstr(weatherText, "雷") != nullptr) {
+        weatherAnimType = WEATHER_ANIM_THUNDER;
     }
 
     weatherDisplayTemp = temperature;
     lastAnimTemp = temperature;
     weatherAnimStartTime = millis();
-    Serial.printf("[显示] 天气动画(type=%d) 播3秒 → 温度: %d°\n",
+    Serial.printf("[显示] 天气动画(type=%d) 播3秒 -> 温度: %d\n",
                   weatherAnimType, temperature);
     display_set_mode(DISPLAY_WEATHER);
 }
@@ -627,13 +604,15 @@ void display_play_user_anim(const JsonArray &frames) {
         }
         userAnimFrameCount++;
     }
-    userAnimFrameStart = millis();
+    if (userAnimFrameCount > 0) {
+        userAnimFrameStart = millis();
+        userAnimFrameIdx = 0;
+    }
     Serial.printf("[显示] 播放用户动画: %d帧\n", userAnimFrameCount);
     display_set_mode(DISPLAY_ANIM_PLAY);
 }
 
 void display_cycle_weather_anim() {
-    // 3 种动画类型循环
     static const uint8_t animTypes[3] = {
         WEATHER_ANIM_SUN,
         WEATHER_ANIM_CLOUD,
@@ -643,7 +622,6 @@ void display_cycle_weather_anim() {
     animCycleIndex = (animCycleIndex + 1) % 3;
     weatherAnimType = animTypes[animCycleIndex];
     weatherAnimStartTime = millis();
-    // 保留当前温度，动画结束后继续显示
     weatherDisplayTemp = (displayMode == DISPLAY_WEATHER) ?
                           (int16_t)userNumber : lastAnimTemp;
 
@@ -706,11 +684,94 @@ void display_anim_tick() {
                 }
             }
         }
-        // 动画期间全亮度（不做PWM），动画结束fall through PWM
+        return;  // 动画期间全亮度，跳过 PWM
     }
 
-    // --- 亮度 PWM（仅在非翻页动画时生效）---
-    if (!animRunning && brightnessPct < 100 && displayMode != DISPLAY_OFF) {
+    // --- 天气动画帧 ---
+    if (displayMode == DISPLAY_WEATHER && weatherAnimType != WEATHER_ANIM_NONE) {
+        unsigned long now = millis();
+        unsigned long elapsed = now - weatherAnimStartTime;
+        if (elapsed < WEATHER_ANIM_DURATION) {
+            const uint8_t (*frames)[4] = nullptr;
+            uint8_t frameCount = 0;
+            uint16_t frameMs = 150;
+
+            switch (weatherAnimType) {
+            case WEATHER_ANIM_SUN:
+                frames = ANIM_SUNNY; frameCount = 2; frameMs = 400; break;
+            case WEATHER_ANIM_CLOUD:
+                frames = ANIM_CLOUDY; frameCount = 4; frameMs = 200; break;
+            case WEATHER_ANIM_RAIN:
+                frames = ANIM_RAINY; frameCount = 6; frameMs = 150; break;
+            case WEATHER_ANIM_SNOW:
+                frames = ANIM_SNOW; frameCount = 4; frameMs = 250; break;
+            case WEATHER_ANIM_THUNDER:
+                frames = ANIM_THUNDER; frameCount = 4; frameMs = 200; break;
+            default:
+                frames = ANIM_DEFAULT; frameCount = 4; frameMs = 250; break;
+            }
+
+            if (frames != nullptr) {
+                int idx = (elapsed / frameMs) % frameCount;
+                segs_write(frames[idx]);
+            }
+            return;  // 动画期间跳过 PWM
+        }
+    }
+
+    // --- 网页动画帧 ---
+    if (displayMode == DISPLAY_ANIMATION) {
+        unsigned long now = millis();
+        unsigned long elapsed = now - webAnimStartTime;
+        if (elapsed < WEB_ANIM_DURATION) {
+            const uint8_t (*frames)[4] = nullptr;
+            uint8_t frameCount = 0;
+            uint16_t frameMs = 300;
+
+            switch (webAnimType) {
+            case WEB_ANIM_SUNSHINE: frames = ANIM_SUNNY;    frameCount = 2; frameMs = 400; break;
+            case WEB_ANIM_RAINING:  frames = ANIM_RAINY;    frameCount = 6; frameMs = 150; break;
+            case WEB_ANIM_LOVE:     frames = LOVE_FRAMES;   frameCount = 6; frameMs = 180; break;
+            case WEB_ANIM_SMILE:    frames = ANIM_SMILE;    frameCount = 2; frameMs = 300; break;
+            case WEB_ANIM_SAD:      frames = ANIM_SAD;      frameCount = 2; frameMs = 300; break;
+            case WEB_ANIM_NOL:      frames = ANIM_NOL;      frameCount = 2; frameMs = 300; break;
+            }
+            if (frames != nullptr) {
+                int idx = (elapsed / frameMs) % frameCount;
+                segs_write(frames[idx]);
+            }
+            return;  // 动画期间跳过 PWM
+        }
+    }
+
+    // --- 用户自定义动画帧 ---
+    if (displayMode == DISPLAY_ANIM_PLAY) {
+        if (userAnimFrameCount == 0 || userAnimFrameIdx >= userAnimFrameCount) {
+            displayMode = DISPLAY_TIME;
+            firstRefresh = true;
+            return;
+        }
+        unsigned long now = millis();
+        unsigned long elapsed = now - userAnimFrameStart;
+        if (elapsed >= userAnimBuffer[userAnimFrameIdx].duration) {
+            userAnimFrameIdx++;
+            if (userAnimFrameIdx >= userAnimFrameCount) {
+                displayMode = DISPLAY_TIME;
+                firstRefresh = true;
+                return;
+            }
+            userAnimFrameStart = now;
+        }
+        segs_write(userAnimBuffer[userAnimFrameIdx].data);
+        return;  // 动画期间跳过 PWM
+    }
+
+    // --- 亮度 PWM（仅在无任何动画时生效）---
+    bool anyAnimActive = animRunning ||
+                         (displayMode == DISPLAY_WEATHER && weatherAnimType != WEATHER_ANIM_NONE) ||
+                         (displayMode == DISPLAY_ANIMATION) ||
+                         (displayMode == DISPLAY_ANIM_PLAY);
+    if (!anyAnimActive && brightnessPct < 100 && displayMode != DISPLAY_OFF) {
         unsigned long now = micros();
         unsigned long elapsed = now - pwmLastToggle;
         unsigned long period = 5000; // 200Hz
@@ -808,5 +869,3 @@ void display_rtc_adjust(uint16_t year, uint8_t month, uint8_t day,
                   year, month, day, hour, min, sec);
     firstRefresh = true;
 }
-
-

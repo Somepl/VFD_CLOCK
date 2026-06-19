@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLOCK - 图案&动画</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .tube-row { display: flex; gap: 8px; justify-content: center; margin: 12px 0 28px; overflow-x: auto; }
+        .tube { position: relative; width: 88px; height: 156px; flex-shrink: 0; }
+        .tube-label { position: absolute; bottom: -18px; left: 0; right: 0; text-align: center; font-size: 10px; color: #808080; }
+        .seg { position: absolute; background: #D0D0D0; cursor: pointer; transition: background 0.08s; border-radius: 2px; }
+        .seg.on { background: #CC2200; }
+        .seg:hover { opacity: 0.7; }
+        .seg-A { top: 8px; left: 22px; width: 44px; height: 8px; }
+        .seg-B { top: 20px; right: 8px; width: 8px; height: 38px; }
+        .seg-C { bottom: 38px; right: 8px; width: 8px; height: 38px; }
+        .seg-D { bottom: 8px; left: 22px; width: 44px; height: 8px; }
+        .seg-E { bottom: 38px; left: 8px; width: 8px; height: 38px; }
+        .seg-F { top: 20px; left: 8px; width: 8px; height: 38px; }
+        .seg-G { top: 66px; left: 22px; width: 44px; height: 8px; }
+        .seg-H { top: 66px; left: 70px; width: 10px; height: 8px; }
+
+        .editor-panel { background: #FFF; border: 2px solid #808080; padding: 14px; margin-bottom: 10px; }
+        .editor-panel h2 { font-size: 13px; text-transform: uppercase; color: #808080; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #C0C0C0; }
+        .hex-display { font-size: 11px; color: #808080; text-align: center; font-family: monospace; word-break: break-all; }
+
+        .frame-list { margin: 6px 0; max-height: 240px; overflow-y: auto; }
+        .frame-item { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-bottom: 1px solid #E0E0E0; font-size: 12px; }
+        .frame-item .idx { color: #808080; font-size: 10px; width: 18px; flex-shrink: 0; }
+        .frame-item .mini-tube { display: inline-flex; gap: 0; flex-shrink: 0; }
+        .frame-item .mini-tube span { display: inline-block; width: 6px; height: 10px; font-size: 7px; text-align: center; color: #808080; }
+        .frame-item .mini-tube .dot { width: 10px; height: 10px; border: 1px solid #C0C0C0; display: inline-block; margin: 0 1px; }
+        .frame-item .mini-tube .dot.on { background: #CC2200; border-color: #CC2200; }
+        .frame-item .hex { font-family: monospace; font-size: 9px; color: #808080; flex: 1; }
+        .frame-item input[type="number"] { width: 52px; font-size: 11px; border: 2px solid #808080; padding: 1px 3px; font-family: monospace; }
+
+        .add-frame-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+        .add-frame-row select { flex: 1; min-width: 80px; font-family: monospace; font-size: 11px; border: 2px solid #808080; padding: 3px; }
+        .add-frame-row input { width: 56px; font-family: monospace; font-size: 11px; border: 2px solid #808080; padding: 3px; }
+
+        .grid { display: flex; flex-wrap: wrap; gap: 6px; }
+        .grid .btn { flex: 1; min-width: 120px; font-size: 12px; padding: 8px; text-align: center; }
+        .grid .btn.playing { background: #808080; color: #FFF; }
+
+        .saved-item { display: flex; align-items: center; justify-content: space-between; padding: 5px 6px; border-bottom: 1px solid #E0E0E0; font-size: 12px; gap: 4px; }
+        .saved-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .saved-item .meta { font-size: 9px; color: #808080; flex-shrink: 0; }
+        .saved-item .actions { display: flex; gap: 3px; flex-shrink: 0; }
+        .hint { font-size: 10px; color: #808080; margin-top: 4px; }
+        .btn { font-size: 12px; padding: 6px 12px; }
+        .btn-sm { font-size: 10px; padding: 3px 8px; }
+        .btn-sel { background: #FFF; }
+        .btn-sel:hover { background: #E0E0E0; }
+
+        .empty-msg { color: #C0C0C0; font-size: 12px; padding: 8px; text-align: center; }
+        .section-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+        .section-tabs .tab { font-size: 11px; padding: 6px 10px; border: 2px solid #808080; background: #FFF; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+        .section-tabs .tab.active { background: #808080; color: #FFF; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <header>
+        <pre class="logo">
+     ____    _    ____ ___  ____
+    |    \  / \  / ___|_ _|/ ___|
+    | |_) // _ \| |    | || |
+    |  _ </ ___ \ |___ | || |___
+    |_| \_\/   \_\____|___|\____|
+        </pre>
+        <h1>图案 &amp; 动画</h1>
+        <p class="subtitle">制作图案 → 组合动画 → 保存播放</p>
+    </header>
+
+    <!-- ===== 管编辑器 ===== -->
+    <div class="editor-panel">
+        <h2>[ 段编辑器 ]</h2>
+        <div class="tube-row" id="tubeRow"></div>
+        <div class="hex-display" id="hexDisplay">FF FF FF FF</div>
+        <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <input type="text" id="patternName" class="input" placeholder="图案名称" style="flex:1; min-width:80px; font-size:12px; padding:5px 8px;">
+            <button class="btn" onclick="savePattern()">[ 保存图案 ]</button>
+            <button class="btn btn-primary" onclick="showPattern()">[ 显示 ]</button>
+            <button class="btn" onclick="addFrame()">[ + 帧 ]</button>
+            <input type="number" id="newFrameDur" value="300" min="50" max="10000" style="width:52px; font-size:11px; border:2px solid #808080; padding:2px 4px; font-family:monospace;">
+            <span style="font-size:10px;color:#808080;">ms</span>
+        </div>
+    </div>
+
+    <!-- ===== 帧序列 ===== -->
+    <div class="editor-panel">
+        <h2>[ 帧序列 ] <span id="frameCount" style="font-size:10px;color:#C0C0C0;">0 帧</span></h2>
+        <div id="frameList" class="frame-list">
+            <div class="empty-msg">暂无帧，从编辑器点击 [+ 帧] 添加</div>
+        </div>
+        <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <input type="text" id="animName" class="input" placeholder="动画名称" style="flex:1; min-width:80px; font-size:12px; padding:5px 8px;">
+            <button class="btn btn-primary" onclick="saveAnim()">[ 保存动画 ]</button>
+            <button class="btn" onclick="playAnim()">[ ▶ 播放 ]</button>
+            <button class="btn" onclick="clearFrames()">[ 清空帧 ]</button>
+        </div>
+        <div class="hint">提示：编辑器中的段状态 + 时长 → [ + 帧 ] 添加；帧可拖动序号排序。</div>
+    </div>
+
+    <!-- ===== 内置动画 + 已保存 ===== -->
+    <div class="editor-panel">
+        <h2>[ 浏览 ]</h2>
+        <div class="section-tabs">
+            <span class="tab active" data-tab="builtin" onclick="switchTab('builtin')">内置动画</span>
+            <span class="tab" data-tab="patterns" onclick="switchTab('patterns')">已存图案</span>
+            <span class="tab" data-tab="animations" onclick="switchTab('animations')">已存动画</span>
+        </div>
+
+        <!-- 内置动画 -->
+        <div id="tab-builtin" class="tab-content active">
+            <div class="grid">
+                <button class="btn btn-sel" data-builtin="0">[ ☀️ Sunshine ]</button>
+                <button class="btn btn-sel" data-builtin="1">[ 🌧️ Raining  ]</button>
+                <button class="btn btn-sel" data-builtin="2">[ ❤️ Love     ]</button>
+                <button class="btn btn-sel" data-builtin="3">[ 😊 Smile    ]</button>
+                <button class="btn btn-sel" data-builtin="4">[ 😢 Sad      ]</button>
+                <button class="btn btn-sel" data-builtin="5">[ 😐 Nol      ]</button>
+            </div>
+            <div id="builtinStatus" class="hint"></div>
+        </div>
+
+        <!-- 已存图案 -->
+        <div id="tab-patterns" class="tab-content">
+            <div id="savedPatterns"><div class="empty-msg">暂无保存的图案</div></div>
+        </div>
+
+        <!-- 已存动画 -->
+        <div id="tab-animations" class="tab-content">
+            <div id="savedAnims"><div class="empty-msg">暂无保存的动画</div></div>
+        </div>
+    </div>
+
+    <footer>
+        <a href="index.html" class="btn btn-sm">[ 返回主页 ]</a>
+    </footer>
+</div>
+
+<script src="script.js"></script>
+<script>
+// ============================================================
+// 段映射: 位 7 6 5 4 3 2 1 0
+//              A B C D E F G H
+// 共阳极: 0=亮 1=灭
+// ============================================================
+const SEG_NAMES = ['A','B','C','D','E','F','G','H'];
+const SEG_BITS = { A:7, B:6, C:5, D:4, E:3, F:2, G:1, H:0 };
+
+let tubeData = [0xFF, 0xFF, 0xFF, 0xFF];
+
+// ============================================================
+// 管绘制
+// ============================================================
+function buildTube(tubeIdx) {
+    const tube = document.createElement('div');
+    tube.className = 'tube';
+    SEG_NAMES.forEach(s => {
+        const el = document.createElement('div');
+        el.className = 'seg seg-' + s;
+        el.dataset.tube = tubeIdx;
+        el.dataset.seg = s;
+        el.addEventListener('click', () => toggleSeg(parseInt(el.dataset.tube), el.dataset.seg));
+        tube.appendChild(el);
+    });
+    const label = document.createElement('div');
+    label.className = 'tube-label';
+    label.textContent = '管' + (tubeIdx + 1);
+    tube.appendChild(label);
+    return tube;
+}
+
+function toggleSeg(tube, seg) {
+    const bit = SEG_BITS[seg];
+    tubeData[tube] ^= (1 << bit);
+    renderTubes();
+    updateHex();
+}
+
+function renderTubes() {
+    document.querySelectorAll('.tube').forEach((tube, idx) => {
+        const val = tubeData[idx];
+        tube.querySelectorAll('.seg').forEach(el => {
+            const bit = SEG_BITS[el.dataset.seg];
+            el.classList.toggle('on', !(val & (1 << bit)));
+        });
+    });
+}
+
+function updateHex() {
+    document.getElementById('hexDisplay').textContent =
+        tubeData.map(v => v.toString(16).toUpperCase().padStart(2,'0')).join(' ');
+}
+
+function setData(data) {
+    tubeData = [...data];
+    renderTubes();
+    updateHex();
+}
+
+// ============================================================
+// 图案
+// ============================================================
+async function savePattern() {
+    const name = document.getElementById('patternName').value.trim();
+    if (!name) { alert('请输入图案名称'); return; }
+    try {
+        await fetchJson('/api/patterns', 'POST', { name, data: tubeData });
+        document.getElementById('patternName').value = '';
+        loadPatterns();
+    } catch(e) { alert('保存失败: ' + e.message); }
+}
+
+async function showPattern() {
+    try {
+        await fetchJson('/api/display/pattern', 'POST', { data: tubeData });
+    } catch(e) {}
+}
+
+async function deletePattern(id) {
+    try {
+        await fetchJson('/api/patterns', 'DELETE', { id });
+        loadPatterns();
+    } catch(e) {}
+}
+
+function loadPatternToEditor(id) {
+    const list = window._savedPatterns || [];
+    const p = list.find(x => x.id === id);
+    if (p) setData(p.data);
+}
+
+// ============================================================
+// 帧序列管理
+// ============================================================
+let frames = [];
+
+function addFrame() {
+    frames.push({ data: [...tubeData], duration: parseInt(document.getElementById('newFrameDur').value) || 300 });
+    renderFrames();
+}
+
+function removeFrame(idx) {
+    frames.splice(idx, 1);
+    renderFrames();
+}
+
+function moveFrame(idx, dir) {
+    const to = idx + dir;
+    if (to < 0 || to >= frames.length) return;
+    [frames[idx], frames[to]] = [frames[to], frames[idx]];
+    renderFrames();
+}
+
+function clearFrames() {
+    frames = [];
+    renderFrames();
+}
+
+let dragIdx = null;
+
+function renderFrames() {
+    const container = document.getElementById('frameList');
+    document.getElementById('frameCount').textContent = frames.length + ' 帧';
+    if (frames.length === 0) {
+        container.innerHTML = '<div class="empty-msg">暂无帧，从编辑器点击 [+ 帧] 添加</div>';
+        return;
+    }
+    container.innerHTML = '';
+    frames.forEach((f, i) => {
+        const div = document.createElement('div');
+        div.className = 'frame-item';
+        div.draggable = true;
+        div.dataset.idx = i;
+
+        // Mini tube preview
+        let miniHtml = '';
+        for (let t = 0; t < 4; t++) {
+            const v = f.data[t];
+            let segStr = '';
+            for (let s = 0; s < 7; s++) { // A-G
+                segStr += (v & (1 << (7 - s))) ? '·' : '█';
+            }
+            segStr += (v & 1) ? '·' : '█'; // H
+            miniHtml += '<span title="管' + (t+1) + '">' + segStr + '</span>';
+        }
+
+        const hex = f.data.map(v => v.toString(16).toUpperCase().padStart(2,'0')).join(' ');
+
+        div.innerHTML = `
+            <span class="idx" draggable="false">#${i+1}</span>
+            <span class="mini-tube">${miniHtml}</span>
+            <span class="hex">${hex}</span>
+            <input type="number" class="dur-input" value="${f.duration}" min="50" max="10000" data-idx="${i}">
+            <span style="font-size:9px;color:#808080;">ms</span>
+            <button class="btn btn-sm" onclick="moveFrame(${i},-1)">[▲]</button>
+            <button class="btn btn-sm" onclick="moveFrame(${i},1)">[▼]</button>
+            <button class="btn btn-sm" onclick="removeFrame(${i})">[✕]</button>
+        `;
+        container.appendChild(div);
+
+        // Drag events for reordering
+        div.addEventListener('dragstart', function(e) {
+            dragIdx = parseInt(this.dataset.idx);
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        div.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        });
+        div.addEventListener('drop', function(e) {
+            e.preventDefault();
+            const from = dragIdx;
+            const to = parseInt(this.dataset.idx);
+            if (from !== to) {
+                const item = frames.splice(from, 1)[0];
+                frames.splice(to, 0, item);
+                renderFrames();
+            }
+            dragIdx = null;
+        });
+    });
+
+    container.querySelectorAll('.dur-input').forEach(inp => {
+        inp.addEventListener('change', function() {
+            const idx = parseInt(this.dataset.idx);
+            frames[idx].duration = parseInt(this.value) || 300;
+        });
+    });
+}
+
+// ============================================================
+// 动画
+// ============================================================
+async function saveAnim() {
+    const name = document.getElementById('animName').value.trim();
+    if (!name) { alert('请输入动画名称'); return; }
+    if (frames.length === 0) { alert('至少添加一帧'); return; }
+    try {
+        await fetchJson('/api/animations', 'POST', {
+            name,
+            frames: frames.map(f => ({ data: f.data, duration: f.duration }))
+        });
+        document.getElementById('animName').value = '';
+        frames = [];
+        renderFrames();
+        loadAnimations();
+    } catch(e) { alert('保存失败: ' + e.message); }
+}
+
+async function playAnim() {
+    if (frames.length === 0) { alert('至少添加一帧'); return; }
+    try {
+        await fetchJson('/api/display/anim-play', 'POST', {
+            frames: frames.map(f => ({ data: f.data, duration: f.duration }))
+        });
+    } catch(e) {}
+}
+
+async function deleteAnim(id) {
+    try {
+        await fetchJson('/api/animations', 'DELETE', { id });
+        loadAnimations();
+    } catch(e) {}
+}
+
+function loadAnimToEditor(id) {
+    const list = window._savedAnims || [];
+    const a = list.find(x => x.id === id);
+    if (a) {
+        frames = a.frames.map(f => ({ data: [...f.data], duration: f.duration }));
+        renderFrames();
+    }
+}
+
+async function playAnimById(id) {
+    const list = window._savedAnims || [];
+    const a = list.find(x => x.id === id);
+    if (a) {
+        try {
+            await fetchJson('/api/display/anim-play', 'POST', {
+                frames: a.frames.map(f => ({ data: f.data, duration: f.duration }))
+            });
+        } catch(e) {}
+    }
+}
+
+// ============================================================
+// 内置动画
+// ============================================================
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('[data-builtin]');
+    if (!btn) return;
+    const type = parseInt(btn.dataset.builtin);
+    const el = document.getElementById('builtinStatus');
+    const names = ['Sunshine','Raining','Love','Smile','Sad','Nol'];
+    fetchJson('/api/display/animation', 'POST', { type })
+        .then(() => {
+            el.textContent = '✅ ' + names[type] + ' 已触发';
+            el.style.color = '#404040';
+        })
+        .catch(() => {
+            el.textContent = '❌ 触发失败';
+            el.style.color = '#CC0000';
+        });
+    setTimeout(() => { el.textContent = ''; }, 3000);
+});
+
+// ============================================================
+// Tab 切换
+// ============================================================
+function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
+}
+
+// ============================================================
+// 加载已保存数据
+// ============================================================
+async function loadPatterns() {
+    try {
+        const list = await fetchJson('/api/patterns');
+        window._savedPatterns = list || [];
+        const container = document.getElementById('savedPatterns');
+        container.innerHTML = '';
+        if (!list || list.length === 0) {
+            container.innerHTML = '<div class="empty-msg">暂无保存的图案</div>';
+            return;
+        }
+        list.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'saved-item';
+            const hex = p.data.map(v => v.toString(16).toUpperCase().padStart(2,'0')).join(' ');
+            div.innerHTML = `
+                <span class="name">${p.name}</span>
+                <span class="meta">${hex}</span>
+                <div class="actions">
+                    <button class="btn btn-sm" onclick="loadPatternToEditor(${p.id})">[ 编辑 ]</button>
+                    <button class="btn btn-sm" onclick="showPatternById(${p.id})">[ 显示 ]</button>
+                    <button class="btn btn-sm" onclick="deletePattern(${p.id})">[ 删除 ]</button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    } catch(e) {}
+}
+
+async function showPatternById(id) {
+    const list = window._savedPatterns || [];
+    const p = list.find(x => x.id === id);
+    if (!p) return;
+    try {
+        await fetchJson('/api/display/pattern', 'POST', { data: p.data });
+    } catch(e) {}
+}
+
+async function loadAnimations() {
+    try {
+        const list = await fetchJson('/api/animations');
+        window._savedAnims = list || [];
+        const container = document.getElementById('savedAnims');
+        container.innerHTML = '';
+        if (!list || list.length === 0) {
+            container.innerHTML = '<div class="empty-msg">暂无保存的动画</div>';
+            return;
+        }
+        list.forEach(a => {
+            const div = document.createElement('div');
+            div.className = 'saved-item';
+            div.innerHTML = `
+                <span class="name">${a.name}</span>
+                <span class="meta">${a.frames.length}帧</span>
+                <div class="actions">
+                    <button class="btn btn-sm" onclick="loadAnimToEditor(${a.id})">[ 编辑 ]</button>
+                    <button class="btn btn-sm" onclick="playAnimById(${a.id})">[ ▶ ]</button>
+                    <button class="btn btn-sm" onclick="deleteAnim(${a.id})">[ 删除 ]</button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    } catch(e) {}
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+const tubeRow = document.getElementById('tubeRow');
+for (let i = 0; i < 4; i++) tubeRow.appendChild(buildTube(i));
+renderTubes();
+loadPatterns();
+loadAnimations();
+</script>
+</body>
+</html>
