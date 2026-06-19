@@ -504,18 +504,19 @@ void display_update() {
             segs_write(dash);
         } else {
             int16_t temp = (int16_t)userNumber;
-            temperature_to_digits(temp, d);
-            // 温度渲染：特殊处理 0xFF（空白）和 0xFE（负号）
             uint8_t segs[4];
-            for (int i = 0; i < 4; i++) {
-                if (d[i] == 0xFF) {
-                    segs[i] = SEGMENT_BLANK;
-                } else if (d[i] == 0xFE) {
-                    segs[i] = B11111101;  // 只亮中间横杠（g段）
-                } else {
-                    segs[i] = SEGMENTS[d[i]];
-                }
+            // 管1：零上空白，零下负号（G 段）
+            if (temp < 0) {
+                segs[0] = 0xFD;
+                temp = -temp;
+            } else {
+                segs[0] = SEGMENT_BLANK;
             }
+            // 管2-3：温度数值
+            segs[1] = (temp >= 10) ? SEGMENTS[temp / 10] : SEGMENT_BLANK;
+            segs[2] = SEGMENTS[temp % 10];
+            // 管4：°C（A+F+B+G）
+            segs[3] = 0x39;
             segs_write(segs);
         }
         break;
@@ -623,6 +624,13 @@ void display_show_weather_with_anim(const char* weatherText, int16_t temperature
         weatherAnimType = WEATHER_ANIM_SNOW;
     } else if (strstr(weatherText, "雷") != nullptr) {
         weatherAnimType = WEATHER_ANIM_THUNDER;
+    }
+
+    if (weatherAnimType == WEATHER_ANIM_DEFAULT) {
+        // 未匹配天气 -> 直接显示温度，跳过动画
+        Serial.printf("[天气] 未匹配动画 (%s)，直接显示温度: %d\n", weatherText, temperature);
+        display_show_weather(temperature);
+        return;
     }
 
     // 尝试加载用户覆写
