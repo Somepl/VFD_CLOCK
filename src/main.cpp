@@ -7,7 +7,6 @@
 #include <WiFi.h>
 #include <ArduinoOTA.h>
 #include "config.h"
-#include "Log.h"
 #include "display_manager.h"
 #include "button_handler.h"
 #include "wifi_manager.h"
@@ -40,7 +39,7 @@ void on_button1_short_press() {
 
 void on_button1_long_press() {
     // 长按 -> 清除 WiFi 凭据
-    Log.println(F("[主控] 按键1长按：清除WiFi凭据"));
+    Serial.println(F("[主控] 按键1长按：清除WiFi凭据"));
     wifi_clear_credentials();
     // 清除后自动进入 AP 模式，方便重新配置
     wifi_enable_ap();
@@ -50,17 +49,17 @@ void on_button1_long_press() {
 void on_button2_short_press() {
     if (display_get_mode() == DISPLAY_WEATHER) {
         // 已在天气显示模式，切换到下一个动画
-        Log.println(F("[主控] 按键2短按：切换动画"));
+        Serial.println(F("[主控] 按键2短按：切换动画"));
         display_cycle_weather_anim();
     } else {
         // 其他模式，重新获取天气
-        Log.println(F("[主控] 按键2短按：获取天气"));
+        Serial.println(F("[主控] 按键2短按：获取天气"));
         weather_fetch();
     }
 }
 
 void on_button2_long_press() {
-    Log.println(F("[主控] 按键2长按：切换温度单位"));
+    Serial.println(F("[主控] 按键2长按：切换温度单位"));
     weather_toggle_unit();
 }
 
@@ -81,21 +80,20 @@ void setup() {
     Serial.begin(115200);
     // 立即熄灭数码管，防止 74HC595 上电默认 LOW 导致全亮
     display_force_off();
-    Log.begin();
-    delay(500);
-    Log.println();
-    Log.println(F("===================================="));
-    Log.println(F("  ESP32 数码管时钟启动中..."));
-    Log.println(F("===================================="));
+        delay(500);
+    Serial.println();
+    Serial.println(F("===================================="));
+    Serial.println(F("  ESP32 数码管时钟启动中..."));
+    Serial.println(F("===================================="));
 
     // --- Step 1: 省电基础设置 ---
 #if ENABLE_CPU_FREQ_DOWN
     setCpuFrequencyMhz(80);
-    Log.printf("[系统] CPU频率: %d MHz\n", getCpuFrequencyMhz());
+    Serial.printf("[系统] CPU频率: %d MHz\n", getCpuFrequencyMhz());
 #endif
 #if ENABLE_BT_DISABLE
     btStop();
-    Log.println(F("[系统] 蓝牙已关闭"));
+    Serial.println(F("[系统] 蓝牙已关闭"));
 #endif
 
     // --- Step 2: 初始化显示模块 ---
@@ -117,16 +115,16 @@ void setup() {
     ArduinoOTA.setHostname(MDNS_HOSTNAME);
     ArduinoOTA.onStart([]() {
         String type = (ArduinoOTA.getCommand() == U_FLASH) ? "固件" : "文件系统";
-        Log.printf("[OTA] 开始更新 %s ...\n", type);
+        Serial.printf("[OTA] 开始更新 %s ...\n", type);
     });
     ArduinoOTA.onEnd([]() {
-        Log.println(F("[OTA] 更新完成，重启中..."));
+        Serial.println(F("[OTA] 更新完成，重启中..."));
     });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-        Log.printf("[OTA] 进度: %u%%\r", (progress * 100) / total);
+        Serial.printf("[OTA] 进度: %u%%\r", (progress * 100) / total);
     });
     ArduinoOTA.onError([](ota_error_t error) {
-        Log.printf("[OTA] 错误: %u\n", error);
+        Serial.printf("[OTA] 错误: %u\n", error);
     });
     ArduinoOTA.begin();
 
@@ -147,7 +145,7 @@ void setup() {
     delay(TOUCH_AUTO_CAL_MS);
     button_auto_calibrate();
 
-    Log.println(F("初始化完成，进入主循环"));
+    Serial.println(F("初始化完成，进入主循环"));
 }
 
 // ============================================================
@@ -161,8 +159,7 @@ void loop() {
     ArduinoOTA.handle();
 
     // --- Telnet 远程日志 ---
-    Log.handle();
-
+    
     // --- 按键检测（每圈都跑）---
     button_update();
 

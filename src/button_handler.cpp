@@ -1,5 +1,4 @@
 #include "button_handler.h"
-#include "Log.h"
 #include <Preferences.h>
 
 enum BtnState {
@@ -48,10 +47,10 @@ static void loadThresholds() {
 }
 
 void button_init() {
-    Log.println(F("[按键] 初始化开始..."));
+    Serial.println(F("[按键] 初始化开始..."));
 
     touchSetCycles(TOUCH_MEASURE_CYCLES, TOUCH_SLEEP_CYCLES);
-    Log.printf("[按键] touchSetCycles(measure=%d, sleep=%d)\n",
+    Serial.printf("[按键] touchSetCycles(measure=%d, sleep=%d)\n",
                   TOUCH_MEASURE_CYCLES, TOUCH_SLEEP_CYCLES);
 
     loadThresholds();
@@ -64,15 +63,15 @@ void button_init() {
         buttons[i].onLong = nullptr;
         buttons[i].baseline = 0;
         touchRead(buttons[i].pin);
-        Log.printf("[按键] 按键%d (T%d) 阈值=%d\n",
+        Serial.printf("[按键] 按键%d (T%d) 阈值=%d\n",
                       i + 1, TOUCH_PINS[i], buttons[i].threshold);
     }
-    Log.printf("[按键] 滞后=%d\n", touchHysteresis);
-    Log.println(F("[按键] 初始化完成（自动校准将在3秒后进行）"));
+    Serial.printf("[按键] 滞后=%d\n", touchHysteresis);
+    Serial.println(F("[按键] 初始化完成（自动校准将在3秒后进行）"));
 }
 
 void button_auto_calibrate() {
-    Log.println(F("[按键] 自动校准开始..."));
+    Serial.println(F("[按键] 自动校准开始..."));
 
     for (int i = 0; i < BUTTON_COUNT; i++) {
         uint32_t sum = 0;
@@ -91,11 +90,11 @@ void button_auto_calibrate() {
         prefs.putUShort(THR_KEYS[i], thr);
         prefs.end();
 
-        Log.printf("[按键] 按键%d: 基线=%d, 阈值=%d\n", i + 1, avg, thr);
+        Serial.printf("[按键] 按键%d: 基线=%d, 阈值=%d\n", i + 1, avg, thr);
     }
 
     calibrated = true;
-    Log.println(F("[按键] 自动校准完成"));
+    Serial.println(F("[按键] 自动校准完成"));
 }
 
 static void update_baseline(int idx, uint16_t raw) {
@@ -135,17 +134,17 @@ void button_update() {
                 b.state = BTN_IDLE;
             } else if (now - b.pressTime >= BTN_DEBOUNCE_MS) {
                 b.state = BTN_PRESSED;
-                Log.printf("[按键] 按键%d 按下 (raw=%d, base=%d, thr=%d)\n",
+                Serial.printf("[按键] 按键%d 按下 (raw=%d, base=%d, thr=%d)\n",
                               i + 1, raw, b.baseline, b.threshold);
             }
             break;
         case BTN_PRESSED:
             if (!touched) {
-                Log.printf("[按键] 按键%d 短按\n", i + 1);
+                Serial.printf("[按键] 按键%d 短按\n", i + 1);
                 if (b.onShort != nullptr) b.onShort();
                 b.state = BTN_IDLE;
             } else if (now - b.pressTime >= BTN_LONG_PRESS_MS) {
-                Log.printf("[按键] 按键%d 长按\n", i + 1);
+                Serial.printf("[按键] 按键%d 长按\n", i + 1);
                 if (b.onLong != nullptr) b.onLong();
                 b.state = BTN_LONG_PRESSED;
             }

@@ -1,14 +1,12 @@
 #include "pattern_manager.h"
-#include "Log.h"
 #include <LittleFS.h>
-#include "Log.h"
 
 bool pm_init() {
     if (!LittleFS.begin(true)) {
-        Log.println(F("[PM] LittleFS 挂载失败"));
+        Serial.println(F("[PM] LittleFS 挂载失败"));
         return false;
     }
-    Log.println(F("[PM] LittleFS 已就绪"));
+    Serial.println(F("[PM] LittleFS 已就绪"));
 
     if (!LittleFS.exists(PM_PATTERNS_FILE)) {
         File f = LittleFS.open(PM_PATTERNS_FILE, "w");

@@ -1,19 +1,11 @@
 #include "remote_client.h"
-#include "Log.h"
 #include "display_manager.h"
-#include "Log.h"
 #include "pattern_manager.h"
-#include "Log.h"
 #include "wifi_manager.h"
-#include "Log.h"
 #include <Preferences.h>
-#include "Log.h"
 #include <PubSubClient.h>
-#include "Log.h"
 #include <WiFiClient.h>
-#include "Log.h"
 #include <ArduinoJson.h>
-#include "Log.h"
 
 static WiFiClient wifiClient;
 static PubSubClient mqtt(wifiClient);
@@ -93,14 +85,14 @@ static void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
     DynamicJsonDocument doc(2048);
     DeserializationError err = deserializeJson(doc, msg);
     if (err) {
-        Log.printf("[MQTT] JSON 解析失败: %s\n", msg.c_str());
+        Serial.printf("[MQTT] JSON 解析失败: %s\n", msg.c_str());
         return;
     }
 
     const String cmd = doc["cmd"].as<String>();
     JsonObject data = doc["data"].as<JsonObject>();
 
-    Log.printf("[MQTT] 收到命令: %s\n", cmd.c_str());
+    Serial.printf("[MQTT] 收到命令: %s\n", cmd.c_str());
 
     if (cmd == "display_number") {
         int num = data["number"] | -1;
@@ -136,7 +128,7 @@ static void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
         JsonArray segs = data["data"].as<JsonArray>();
         int editId = data["id"].as<int>();
         if (name.length() == 0 || segs.size() != 4) {
-            Log.printf("[MQTT] save_pattern 参数错误\n");
+            Serial.printf("[MQTT] save_pattern 参数错误\n");
             return;
         }
         DynamicJsonDocument pdoc(2048);
@@ -187,7 +179,7 @@ static void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
         JsonArray frames = data["frames"].as<JsonArray>();
         int editId = data["id"].as<int>();
         if (name.length() == 0 || frames.size() == 0) {
-            Log.printf("[MQTT] save_animation 参数错误\n");
+            Serial.printf("[MQTT] save_animation 参数错误\n");
             return;
         }
         DynamicJsonDocument adoc(4096);
@@ -235,7 +227,7 @@ static void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
             display_play_user_anim(frames);
         }
     } else {
-        Log.printf("[MQTT] 未知命令: %s\n", cmd.c_str());
+        Serial.printf("[MQTT] 未知命令: %s\n", cmd.c_str());
     }
 
     publishStatus();
@@ -245,9 +237,9 @@ void remote_init() {
     loadConfig();
     mqtt.setCallback(mqttCallback);
     if (state != REMOTE_DISABLED) {
-        Log.printf("[MQTT] Broker: %s, 主题: %s\n", mqttBroker.c_str(), cmdTopic.c_str());
+        Serial.printf("[MQTT] Broker: %s, 主题: %s\n", mqttBroker.c_str(), cmdTopic.c_str());
     } else {
-        Log.println(F("[MQTT] 未配置，已禁用"));
+        Serial.println(F("[MQTT] 未配置，已禁用"));
     }
 }
 
@@ -265,7 +257,7 @@ static void connectToBroker() {
         host = host.substring(0, colon);
     }
 
-    Log.printf("[MQTT] 连接 %s:%d ...\n", host.c_str(), port);
+    Serial.printf("[MQTT] 连接 %s:%d ...\n", host.c_str(), port);
     mqtt.setServer(host.c_str(), port);
 
     String clientId = "clock-";
@@ -276,10 +268,10 @@ static void connectToBroker() {
     if (mqtt.connect(clientId.c_str())) {
         mqtt.subscribe(cmdTopic.c_str());
         state = REMOTE_CONNECTED;
-        Log.printf("[MQTT] 已连接，订阅: %s\n", cmdTopic.c_str());
+        Serial.printf("[MQTT] 已连接，订阅: %s\n", cmdTopic.c_str());
         publishStatus();
     } else {
-        Log.printf("[MQTT] 连接失败, rc=%d\n", mqtt.state());
+        Serial.printf("[MQTT] 连接失败, rc=%d\n", mqtt.state());
         state = REMOTE_DISCONNECTED;
     }
 }

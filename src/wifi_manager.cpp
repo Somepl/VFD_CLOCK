@@ -4,13 +4,9 @@
  * 使用 WiFi.onEvent() 注册事件回调，在回调中更新状态 * AP 模式超时wifi_update() 中处理（非阻塞 millis() 计时） */
 
 #include "wifi_manager.h"
-#include "Log.h"
 #include "web_server.h"
-#include "Log.h"
 #include "ntp_sync.h"
-#include "Log.h"
 #include <Preferences.h>
-#include "Log.h"
 
 // ============================================================
 // 全局状态
@@ -52,7 +48,7 @@ static void load_credentials() {
     bool ok = prefs.begin(PREFS_NAMESPACE, true);  // 只读模式
 
     if (!ok) {
-        Log.println(F("[WiFi] 警告：NVS命名空间 'clock' 打开失败"));
+        Serial.println(F("[WiFi] 警告：NVS命名空间 'clock' 打开失败"));
         credentialsLoaded = false;
         return;
     }
@@ -63,11 +59,11 @@ static void load_credentials() {
 
     if (savedSSID.length() > 0) {
         credentialsLoaded = true;
-        Log.printf("[WiFi] 已加载凭据 SSID=%s, 长度=%d\n",
+        Serial.printf("[WiFi] 已加载凭据 SSID=%s, 长度=%d\n",
                       savedSSID.c_str(), savedSSID.length());
     } else {
         credentialsLoaded = false;
-        Log.println(F("[WiFi] 无已保存的WiFi凭据"));
+        Serial.println(F("[WiFi] 无已保存的WiFi凭据"));
     }
 }
 
@@ -83,7 +79,7 @@ static void save_credentials(const char* ssid, const char* password) {
     savedPassword = String(password);
     credentialsLoaded = true;
 
-    Log.printf("[WiFi] 凭据已保存 SSID=%s\n", ssid);
+    Serial.printf("[WiFi] 凭据已保存 SSID=%s\n", ssid);
     prefs.end();
 }
 
@@ -93,12 +89,12 @@ static void save_credentials(const char* ssid, const char* password) {
 
 static void connect_sta() {
     if (!credentialsLoaded || savedSSID.length() == 0) {
-        Log.println(F("[WiFi] 无凭据，跳过STA连接"));
+        Serial.println(F("[WiFi] 无凭据，跳过STA连接"));
         wifiState = WIFI_DISCONNECTED;
         return;
     }
 
-    Log.printf("[WiFi] 正在连接 %s ...\n", savedSSID.c_str());
+    Serial.printf("[WiFi] 正在连接 %s ...\n", savedSSID.c_str());
     wifiState = WIFI_CONNECTING;
 
     WiFi.mode(WIFI_STA);
@@ -114,10 +110,10 @@ static void onWiFiEvent(WiFiEvent_t event) {
     switch (event) {
     case ARDUINO_EVENT_WIFI_STA_GOT_IP: {
         wifiState = WIFI_CONNECTED;
-        Log.printf("[WiFi] STA 已连接！IP: %s\n", WiFi.localIP().toString().c_str());
+        Serial.printf("[WiFi] STA 已连接！IP: %s\n", WiFi.localIP().toString().c_str());
 #if ENABLE_WIFI_PS
         WiFi.setSleep(true);
-        Log.println(F("[WiFi] Modem-sleep 已启用"));
+        Serial.println(F("[WiFi] Modem-sleep 已启用"));
 #endif
         // 启动 mDNS，可通过 clock.local 访问
         web_server_start_mdns();
@@ -128,7 +124,7 @@ static void onWiFiEvent(WiFiEvent_t event) {
 
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
         if (wifiState == WIFI_CONNECTED) {
-            Log.println(F("[WiFi] STA 连接断开，将自动重连"));
+            Serial.println(F("[WiFi] STA 连接断开，将自动重连"));
         }
         wifiState = WIFI_DISCONNECTED;
         staReconnectTime = millis();
@@ -138,14 +134,14 @@ static void onWiFiEvent(WiFiEvent_t event) {
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED: {
         wifiState = WIFI_AP_CONNECTED;
         apStartTime = millis();  // 重置超时计时
-        Log.println(F("[WiFi] 有客户端连入 AP"));
+        Serial.println(F("[WiFi] 有客户端连入 AP"));
         break;
     }
 
     case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED: {
         wifiState = WIFI_AP_ACTIVE;
         apStartTime = millis();  // 重新开始超时计时
-        Log.println(F("[WiFi] log"));
+        Serial.println(F("[WiFi] log"));
         break;
     }
 
@@ -159,7 +155,7 @@ static void onWiFiEvent(WiFiEvent_t event) {
 // ============================================================
 
 void wifi_init() {
-    Log.println(F("[WiFi] log"));
+    Serial.println(F("[WiFi] log"));
 
     // 注册事件回调
     WiFi.onEvent(onWiFiEvent);
@@ -176,11 +172,11 @@ void wifi_init() {
         connect_sta();
     } else {
         wifiState = WIFI_DISCONNECTED;
-        Log.println(F("[WiFi] 首次开机，未配网。长按按键1或使用网页配置"));
+        Serial.println(F("[WiFi] 首次开机，未配网。长按按键1或使用网页配置"));
         // 不自动开 AP——用户需要按按键1来配网
     }
 
-    Log.println(F("[WiFi] 初始化完成"));
+    Serial.println(F("[WiFi] 初始化完成"));
 }
 
 void wifi_update() {
@@ -210,7 +206,7 @@ void wifi_update() {
                                     (s == WL_CONNECT_FAILED) ? "FAILED" :
                                     (s == WL_CONNECTION_LOST) ? "LOST" :
                                     (s == WL_DISCONNECTED) ? "DISCONNECTED" : "";
-            Log.printf("[WiFi] 连接状态 %s (status=%d)\n", statusStr, s);
+            Serial.printf("[WiFi] 连接状态 %s (status=%d)\n", statusStr, s);
         }
         break;
     }
@@ -222,7 +218,7 @@ void wifi_update() {
     case WIFI_AP_ACTIVE:
         // 检查 3 分钟超时
         if (now - apStartTime >= AP_TIMEOUT_MS) {
-            Log.println(F("[WiFi] log"));
+            Serial.println(F("[WiFi] log"));
             wifi_disable_ap();
         }
         break;
@@ -235,7 +231,7 @@ void wifi_update() {
 }
 
 void wifi_enable_ap() {
-    Log.println(F("[WiFi] 启动 AP 配网模式..."));
+    Serial.println(F("[WiFi] 启动 AP 配网模式..."));
 
     // 先断开 STA 连接（避免信道冲突）
     WiFi.disconnect(true);
@@ -252,18 +248,18 @@ void wifi_enable_ap() {
         // 确保网页服务器已启动（配网页）
         web_server_init();
 
-        Log.println(F("[WiFi] AP 已启动："));
-        Log.printf("  SSID: %s\n", AP_SSID);
-        Log.printf("  IP:   %s\n", WiFi.softAPIP().toString().c_str());
-        Log.println(F("  3分钟后无客户端连接将自动关闭"));
+        Serial.println(F("[WiFi] AP 已启动："));
+        Serial.printf("  SSID: %s\n", AP_SSID);
+        Serial.printf("  IP:   %s\n", WiFi.softAPIP().toString().c_str());
+        Serial.println(F("  3分钟后无客户端连接将自动关闭"));
     } else {
-        Log.println(F("[WiFi] AP 启动失败"));
+        Serial.println(F("[WiFi] AP 启动失败"));
         wifiState = WIFI_DISCONNECTED;
     }
 }
 
 void wifi_disable_ap() {
-    Log.println(F("[WiFi] 关闭 AP 模式..."));
+    Serial.println(F("[WiFi] 关闭 AP 模式..."));
 
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);
@@ -277,7 +273,7 @@ void wifi_disable_ap() {
 }
 
 void wifi_save_and_connect(const char* ssid, const char* password) {
-    Log.printf("[WiFi] 配网完成: %s\n", ssid);
+    Serial.printf("[WiFi] 配网完成: %s\n", ssid);
 
     // 保存到 NVS
     save_credentials(ssid, password);
@@ -291,11 +287,11 @@ void wifi_save_and_connect(const char* ssid, const char* password) {
     WiFi.begin(ssid, password);
     wifiState = WIFI_CONNECTING;
 
-    Log.println(F("[WiFi] log"));
+    Serial.println(F("[WiFi] log"));
 }
 
 void wifi_clear_credentials() {
-    Log.println(F("[WiFi] 清除所有WiFi凭据"));
+    Serial.println(F("[WiFi] 清除所有WiFi凭据"));
 
     Preferences prefs;
     prefs.begin(PREFS_NAMESPACE, false);
@@ -309,7 +305,7 @@ void wifi_clear_credentials() {
     WiFi.disconnect(true);
     wifiState = WIFI_DISCONNECTED;
 
-    Log.println(F("[WiFi] 凭据已清除，请重新配置"));
+    Serial.println(F("[WiFi] 凭据已清除，请重新配置"));
 }
 
 WiFiState wifi_get_state() {

@@ -8,13 +8,9 @@
  */
 
 #include "ntp_sync.h"
-#include "Log.h"
 #include "wifi_manager.h"
-#include "Log.h"
 #include "display_manager.h"
-#include "Log.h"
 #include <time.h>
-#include "Log.h"
 
 // ============================================================
 // 全局状态
@@ -69,7 +65,7 @@ static bool write_ntp_to_rtc() {
 
     // 验证时间合理性（年份必须 > 2024）
     if (timeinfo.tm_year + 1900 < 2024) {
-        Log.printf("[NTP] 时间不合理: %d\n", timeinfo.tm_year + 1900);
+        Serial.printf("[NTP] 时间不合理: %d\n", timeinfo.tm_year + 1900);
         return false;
     }
 
@@ -95,9 +91,9 @@ void ntp_init() {
     ntpState = NTP_IDLE;
     syncedOnce = false;
 
-    Log.printf("[NTP] 服务器: %s, 时区: UTC%d\n",
+    Serial.printf("[NTP] 服务器: %s, 时区: UTC%d\n",
                   NTP_SERVER, GMT_OFFSET_SEC / 3600);
-    Log.println(F("[NTP] 初始化完成"));
+    Serial.println(F("[NTP] 初始化完成"));
 }
 
 void ntp_update() {
@@ -110,7 +106,7 @@ void ntp_update() {
             syncStartTime = millis();
             // 重新配置 NTP 以发起同步请求
             configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
-            Log.println(F("[NTP] 开始同步"));
+            Serial.println(F("[NTP] 开始同步"));
         }
         break;
 
@@ -125,15 +121,15 @@ void ntp_update() {
                 ntpState = NTP_DONE;
                 lastSyncTime = millis();
                 syncedOnce = true;
-                Log.println(F("[NTP] 同步成功"));
+                Serial.println(F("[NTP] 同步成功"));
             } else {
                 ntpState = NTP_FAILED;
-                Log.println(F("[NTP] RTC写入失败"));
+                Serial.println(F("[NTP] RTC写入失败"));
             }
         } else if (millis() - syncStartTime >= NTP_TIMEOUT_MS) {
             // 超时
             ntpState = NTP_FAILED;
-            Log.println(F("[NTP] 同步超时"));
+            Serial.println(F("[NTP] 同步超时"));
         }
         // 否则继续等待（下一次 loop 再检查）
         break;
@@ -150,7 +146,7 @@ void ntp_force_sync() {
     if (ntpState == NTP_SYNCING) return;  // 已在同步中
     ntpState = NTP_IDLE;
     lastSyncTime = 0;  // 伪造需要同步
-    Log.println(F("[NTP] 强制同步请求"));
+    Serial.println(F("[NTP] 强制同步请求"));
 }
 
 unsigned long ntp_last_sync_time() {

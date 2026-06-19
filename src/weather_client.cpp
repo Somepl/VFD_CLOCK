@@ -1,15 +1,9 @@
 #include "weather_client.h"
-#include "Log.h"
 #include "wifi_manager.h"
-#include "Log.h"
 #include "display_manager.h"
-#include "Log.h"
 #include <WiFiClientSecure.h>
-#include "Log.h"
 #include <ArduinoJson.h>
-#include "Log.h"
 #include <Preferences.h>
-#include "Log.h"
 
 // ============================================================
 // 全局状态
@@ -157,15 +151,15 @@ static void save_temp_unit() {
 // ============================================================
 
 void weather_init() {
-    Log.println(F("[天气] log"));
+    Serial.println(F("[天气] log"));
     httpSslClient.setInsecure();
     load_temp_unit();
     fetchState = WEATHER_IDLE;
     fetchRequested = false;
     weatherAvailable = false;
 
-    Log.printf("[天气] API Key: %s\n", WEATHER_API_KEY);
-    Log.printf("[天气] 温度单位: %s\n", tempUnit == TEMP_CELSIUS ? "℃" : "℉");
+    Serial.printf("[天气] API Key: %s\n", WEATHER_API_KEY);
+    Serial.printf("[天气] 温度单位: %s\n", tempUnit == TEMP_CELSIUS ? "℃" : "℉");
 }
 
 void weather_update() {
@@ -176,7 +170,7 @@ void weather_update() {
             fetchRequested = false;
 
             if (!wifi_is_sta_connected()) {
-                Log.println(F("[天气] WiFi未连接，无法获取天气"));
+                Serial.println(F("[天气] WiFi未连接，无法获取天气"));
                 fetchState = WEATHER_FAILED;
                 break;
             }
@@ -184,13 +178,13 @@ void weather_update() {
             // 第一步：IP 定位
 #if ENABLE_AMAP_LOCATION
             if (strlen(AMAP_API_KEY) > 0) {
-                Log.printf("[天气] 使用高德IP定位\n");
+                Serial.printf("[天气] 使用高德IP定位\n");
                 String path = String("/v3/ipkey=") + AMAP_API_KEY;
                 http_start("restapi.amap.com", 443, path.c_str(), true, 4000);
             } else
 #endif
             {
-                Log.printf("[天气] 使用 ip-api.com 定位\n");
+                Serial.printf("[天气] 使用 ip-api.com 定位\n");
                 http_start("ip-api.com", 80, "/json", false, 3000);
             }
             fetchState = WEATHER_FETCH_IP;
@@ -206,7 +200,7 @@ void weather_update() {
 
         if (ret == 1) {
             String body = extract_body(httpResponse);
-            Log.printf("[天气] IP定位响应: %s\n", body.c_str());
+            Serial.printf("[天气] IP定位响应: %s\n", body.c_str());
 
             DynamicJsonDocument doc(2048);
             DeserializationError err = deserializeJson(doc, body);
@@ -226,17 +220,17 @@ void weather_update() {
                 }
 
                 if (cachedCity.length() > 0) {
-                    Log.printf("[天气] 定位成功: %s\n", cachedCity.c_str());
+                    Serial.printf("[天气] 定位成功: %s\n", cachedCity.c_str());
                 } else {
-                    Log.println(F("[天气] IP定位返回城市为空"));
+                    Serial.println(F("[天气] IP定位返回城市为空"));
                     cachedCity = DEFAULT_CITY;
                 }
             } else {
-                Log.printf("[天气] IP定位JSON解析失败: %s\n", err.c_str());
+                Serial.printf("[天气] IP定位JSON解析失败: %s\n", err.c_str());
                 cachedCity = DEFAULT_CITY;
             }
         } else {
-            Log.printf("[天气] IP定位失败，使用默认城市 %s\n", DEFAULT_CITY);
+            Serial.printf("[天气] IP定位失败，使用默认城市 %s\n", DEFAULT_CITY);
             cachedCity = DEFAULT_CITY;
         }
 
@@ -262,7 +256,7 @@ void weather_update() {
 
         if (ret == 1) {
             String body = extract_body(httpResponse);
-            Log.printf("[天气] API响应: %s\n", body.c_str());
+            Serial.printf("[天气] API响应: %s\n", body.c_str());
 
             DynamicJsonDocument doc(2048);
             DeserializationError err = deserializeJson(doc, body);
@@ -274,27 +268,27 @@ void weather_update() {
                 if (text.is<const char*>()) {
                     cachedWeatherText = text.as<String>();
                 } else {
-                    Log.println(F("[天气] 警告：天气文字字段异常"));
+                    Serial.println(F("[天气] 警告：天气文字字段异常"));
                     cachedWeatherText = "未知";
                 }
 
                 if (temp.is<int>() || temp.is<float>() || temp.is<const char*>()) {
                     cachedTempC = temp.as<int16_t>();
-                    Log.printf("[天气] 温度原始值 %s\n", temp.as<String>().c_str());
+                    Serial.printf("[天气] 温度原始值 %s\n", temp.as<String>().c_str());
                 } else {
-                    Log.printf("[天气] 警告：温度字段异常，使用缓存\n");
+                    Serial.printf("[天气] 警告：温度字段异常，使用缓存\n");
                 }
 
                 weatherAvailable = true;
                 fetchState = WEATHER_DONE;
-                Log.printf("[天气] 获取成功: %s, %d℃\n",
+                Serial.printf("[天气] 获取成功: %s, %d℃\n",
                               cachedWeatherText.c_str(), cachedTempC);
             } else {
-                Log.printf("[天气] 天气JSON解析失败: %s\n", err.c_str());
+                Serial.printf("[天气] 天气JSON解析失败: %s\n", err.c_str());
                 fetchState = WEATHER_FAILED;
             }
         } else {
-            Log.printf("[天气] 天气请求超时或失败\n");
+            Serial.printf("[天气] 天气请求超时或失败\n");
             fetchState = WEATHER_FAILED;
         }
         break;
@@ -305,7 +299,7 @@ void weather_update() {
                                celsius_to_fahrenheit(cachedTempC) :
                                cachedTempC;
         display_show_weather_with_anim(cachedWeatherText.c_str(), displayTemp);
-        Log.printf("[天气] 显示温度: %d\n", displayTemp);
+        Serial.printf("[天气] 显示温度: %d\n", displayTemp);
         fetchState = WEATHER_IDLE;
         break;
     }
@@ -319,7 +313,7 @@ void weather_update() {
         } else {
             display_show_weather(-99);
         }
-        Log.println(F("[天气] 获取失败，使用缓存或显示错误"));
+        Serial.println(F("[天气] 获取失败，使用缓存或显示错误"));
         fetchState = WEATHER_IDLE;
         break;
     }
@@ -327,17 +321,17 @@ void weather_update() {
 
 void weather_fetch() {
     if (fetchState != WEATHER_IDLE) {
-        Log.println(F("[天气] 正在获取中，请稍候"));
+        Serial.println(F("[天气] 正在获取中，请稍候"));
         return;
     }
     fetchRequested = true;
-    Log.println(F("[天气] 触发获取"));
+    Serial.println(F("[天气] 触发获取"));
 }
 
 void weather_toggle_unit() {
     tempUnit = (tempUnit == TEMP_CELSIUS) ? TEMP_FAHRENHEIT : TEMP_CELSIUS;
     save_temp_unit();
-    Log.printf("[天气] 单位切换为 %s\n",
+    Serial.printf("[天气] 单位切换为 %s\n",
                   tempUnit == TEMP_CELSIUS ? "C" : "F");
 
     if (display_get_mode() == DISPLAY_WEATHER && weatherAvailable) {

@@ -7,30 +7,18 @@
  */
 
 #include "web_server.h"
-#include "Log.h"
 #include "config.h"
-#include "Log.h"
 #include "wifi_manager.h"
-#include "Log.h"
 #include "display_manager.h"
-#include "Log.h"
 #include "pattern_manager.h"
-#include "Log.h"
 #include "button_handler.h"
-#include "Log.h"
 #include "remote_client.h"
-#include "Log.h"
 
 #include <WiFi.h>
-#include "Log.h"
 #include <ESPmDNS.h>
-#include "Log.h"
 #include <LittleFS.h>
-#include "Log.h"
 #include <ESPAsyncWebServer.h>
-#include "Log.h"
 #include <ArduinoJson.h>
-#include "Log.h"
 
 // ============================================================
 // 全局实例
@@ -187,14 +175,14 @@ static String buildStatusJson() {
 void web_server_init() {
     if (serverRunning) return;
 
-    Log.println(F("[Web] log"));
+    Serial.println(F("[Web] log"));
 
     // --- 挂载 LittleFS ---
     if (!LittleFS.begin(true)) {
-        Log.println(F("[Web] 错误：LittleFS 挂载失败"));
+        Serial.println(F("[Web] 错误：LittleFS 挂载失败"));
         return;
     }
-    Log.println(F("[Web] LittleFS 已挂载"));
+    Serial.println(F("[Web] LittleFS 已挂载"));
 
     // --- 初始化图案动画管理器 ---
     pm_init();
@@ -241,7 +229,7 @@ void web_server_init() {
                 return;
             }
 
-            Log.printf("[Web] 配网请求: SSID=%s\n", ssid);
+            Serial.printf("[Web] 配网请求: SSID=%s\n", ssid);
             wifi_save_and_connect(ssid, password);
 
             request->send(200, "application/json", "{\"success\":true}");
@@ -267,7 +255,7 @@ void web_server_init() {
             uint16_t number = doc["number"] | 0;
             if (number > 9999) number = 9999;
 
-            Log.printf("[Web] 设置数字: %d\n", number);
+            Serial.printf("[Web] 设置数字: %d\n", number);
             display_show_number(number);
 
             request->send(200, "application/json", "{\"success\":true}");
@@ -275,7 +263,7 @@ void web_server_init() {
 
     // 恢复时间显示
     server.on("/api/display/recover", HTTP_POST, [](AsyncWebServerRequest *request) {
-        Log.println(F("[Web] 恢复时间显示"));
+        Serial.println(F("[Web] 恢复时间显示"));
         display_set_mode(DISPLAY_TIME);
         request->send(200, "application/json", "{\"success\":true}");
     });
@@ -587,7 +575,7 @@ void web_server_init() {
 
     // 重启设备
     server.on("/api/restart", HTTP_POST, [](AsyncWebServerRequest *request) {
-        Log.println(F("[Web] log"));
+        Serial.println(F("[Web] log"));
         AsyncWebServerResponse *resp = request->beginResponse(200, "application/json", "{\"success\":true}");
         request->send(resp);
         delay(1000);
@@ -630,7 +618,7 @@ void web_server_init() {
             }
             const char* name = doc["name"];
             bool ok = LittleFS.remove(name);
-            Log.printf("[Web] 删除文件: %s -> %s\n", name, ok ? "OK" : "FAIL");
+            Serial.printf("[Web] 删除文件: %s -> %s\n", name, ok ? "OK" : "FAIL");
             request->send(200, "application/json", ok ? "{\"success\":true}" : "{\"success\":false}");
         });
 
@@ -644,7 +632,7 @@ void web_server_init() {
                 String path = "/" + filename;
                 // 去掉路径中的目录穿越
                 path.replace("/../", "/");
-                Log.printf("[Web] 开始上传: %s\n", path.c_str());
+                Serial.printf("[Web] 开始上传: %s\n", path.c_str());
                 File* f = new File(LittleFS.open(path, FILE_WRITE));
                 request->_tempObject = (void*)f;
             }
@@ -656,7 +644,7 @@ void web_server_init() {
                 f->close();
                 delete f;
                 request->_tempObject = nullptr;
-                Log.println(F("[Web] 上传完成"));
+                Serial.println(F("[Web] 上传完成"));
             }
         });
 
@@ -666,20 +654,20 @@ void web_server_init() {
     // --- 启动服务器 ---
     server.begin();
     serverRunning = true;
-    Log.println(F("[Web] HTTP 服务器已启动 (端口80)"));
+    Serial.println(F("[Web] HTTP 服务器已启动 (端口80)"));
 }
 
 void web_server_stop() {
     if (serverRunning) {
         server.end();
         serverRunning = false;
-        Log.println(F("[Web] HTTP 服务器已停止"));
+        Serial.println(F("[Web] HTTP 服务器已停止"));
     }
 
     if (mdnsRunning) {
         MDNS.end();
         mdnsRunning = false;
-        Log.println(F("[Web] mDNS 已停止"));
+        Serial.println(F("[Web] mDNS 已停止"));
     }
 }
 
@@ -689,9 +677,9 @@ void web_server_start_mdns() {
     if (MDNS.begin(MDNS_HOSTNAME)) {
         MDNS.addService("http", "tcp", 80);
         mdnsRunning = true;
-        Log.printf("[Web] mDNS 已启动: http://%s.local\n", MDNS_HOSTNAME);
+        Serial.printf("[Web] mDNS 已启动: http://%s.local\n", MDNS_HOSTNAME);
     } else {
-        Log.println(F("[Web] mDNS 启动失败"));
+        Serial.println(F("[Web] mDNS 启动失败"));
     }
 }
 

@@ -8,15 +8,10 @@
  */
 
 #include "display_manager.h"
-#include "Log.h"
 #include <Wire.h>
-#include "Log.h"
 #include <RTClib.h>
-#include "Log.h"
 #include <ShiftRegister74HC595.h>
-#include "Log.h"
 #include <Preferences.h>
-#include "Log.h"
 
 // ============================================================
 // 硬件实例（全局单例）
@@ -284,7 +279,7 @@ static void load_display_config() {
     nightStart = constrain(prefs.getUChar(PREFS_KEY_NIGHT_START, NIGHT_START_DEFAULT), 0, 23);
     nightEnd = constrain(prefs.getUChar(PREFS_KEY_NIGHT_END, NIGHT_END_DEFAULT), 0, 23);
     prefs.end();
-    Log.printf("[显示] 配置: 亮度=%d%%, 夜间模式=%d (%d:00-%d:00)\n",
+    Serial.printf("[显示] 配置: 亮度=%d%%, 夜间模式=%d (%d:00-%d:00)\n",
                   brightnessPct, nightEnabled, nightStart, nightEnd);
 }
 
@@ -326,7 +321,7 @@ void display_force_off() {
 void display_init() {
     // 立即熄灭所有段，覆盖 74HC595 构造函数默认的全 LOW 状态
     display_force_off();
-    Log.println(F("[显示] log"));
+    Serial.println(F("[显示] log"));
 
     // 初始化 I2C（DS3231）
     Wire.begin(I2C_SDA, I2C_SCL);
@@ -334,14 +329,14 @@ void display_init() {
     // 检测 RTC
     if (rtc.begin()) {
         rtcReady = true;
-        Log.println(F("[显示] DS3231 RTC 已就绪"));
+        Serial.println(F("[显示] DS3231 RTC 已就绪"));
         // 打印当前时间，方便调试
         DateTime now = rtc.now();
-        Log.printf("[显示] 当前RTC时间: %04d-%02d-%02d %02d:%02d:%02d\n",
+        Serial.printf("[显示] 当前RTC时间: %04d-%02d-%02d %02d:%02d:%02d\n",
                       now.year(), now.month(), now.day(),
                       now.hour(), now.minute(), now.second());
     } else {
-        Log.println(F("[显示] log"));
+        Serial.println(F("[显示] log"));
     }
 
     // 初始状态：RTC 正常 -> 等首次刷新显示时间；RTC 异常 -> 立即显示 "----"
@@ -356,7 +351,7 @@ void display_init() {
 
     load_display_config();
 
-    Log.println(F("[显示] 初始化完成"));
+    Serial.println(F("[显示] 初始化完成"));
 }
 
 void display_update() {
@@ -419,7 +414,7 @@ void display_update() {
                 weatherAnimType = WEATHER_ANIM_NONE;
                 userNumber = weatherDisplayTemp;
                 weatherStartTime = millis();
-                Log.printf("[显示] 动画结束，显示温度 %d\n", weatherDisplayTemp);
+                Serial.printf("[显示] 动画结束，显示温度 %d\n", weatherDisplayTemp);
             } else {
                 // 播动画帧：根据动画类型查找
                 const uint8_t (*frames)[4] = nullptr;
@@ -548,7 +543,7 @@ void display_update() {
 void display_set_mode(DisplayMode mode) {
     if (displayMode == mode) return;
 
-    Log.printf("[显示] 模式切换: %d -> %d\n", displayMode, mode);
+    Serial.printf("[显示] 模式切换: %d -> %d\n", displayMode, mode);
     displayMode = mode;
 
     if (mode == DISPLAY_TIME) {
@@ -565,7 +560,7 @@ DisplayMode display_get_mode() {
 void display_show_number(uint16_t number) {
     if (number > 9999) number = 9999;
     userNumber = number;
-    Log.printf("[显示] 设置数字: %d\n", userNumber);
+    Serial.printf("[显示] 设置数字: %d\n", userNumber);
     display_set_mode(DISPLAY_NUMBER);
 }
 
@@ -574,7 +569,7 @@ void display_show_weather(int16_t temperature) {
     lastAnimTemp = temperature;
     weatherStartTime = millis();
     weatherAnimType = WEATHER_ANIM_NONE;
-    Log.printf("[显示] 显示天气温度: %d°\n", temperature);
+    Serial.printf("[显示] 显示天气温度: %d°\n", temperature);
     display_set_mode(DISPLAY_WEATHER);
 }
 
@@ -590,7 +585,7 @@ void display_show_weather_with_anim(const char* weatherText, int16_t temperature
     weatherDisplayTemp = temperature;
     lastAnimTemp = temperature;
     weatherAnimStartTime = millis();
-    Log.printf("[显示] 天气动画(type=%d) 播3秒 → 温度: %d°\n",
+    Serial.printf("[显示] 天气动画(type=%d) 播3秒 → 温度: %d°\n",
                   weatherAnimType, temperature);
     display_set_mode(DISPLAY_WEATHER);
 }
@@ -600,14 +595,14 @@ void display_show_web_anim(uint8_t animType) {
     webAnimType = animType;
     webAnimStartTime = millis();
     const char* names[] = {"Sunshine", "Raining", "Love", "Smile", "Sad", "Nol"};
-    Log.printf("[显示] 网页触发动画: %s\n", names[animType]);
+    Serial.printf("[显示] 网页触发动画: %s\n", names[animType]);
     display_set_mode(DISPLAY_ANIMATION);
 }
 
 void display_show_raw(const uint8_t data[4]) {
     memcpy(userPatternData, data, 4);
     webAnimStartTime = millis();
-    Log.printf("[显示] 显示用户图案: %02X %02X %02X %02X\n",
+    Serial.printf("[显示] 显示用户图案: %02X %02X %02X %02X\n",
                   data[0], data[1], data[2], data[3]);
     display_set_mode(DISPLAY_PATTERN);
 }
@@ -630,7 +625,7 @@ void display_play_user_anim(const JsonArray &frames) {
         userAnimFrameCount++;
     }
     userAnimFrameStart = millis();
-    Log.printf("[显示] 播放用户动画: %d帧\n", userAnimFrameCount);
+    Serial.printf("[显示] 播放用户动画: %d帧\n", userAnimFrameCount);
     display_set_mode(DISPLAY_ANIM_PLAY);
 }
 
@@ -649,7 +644,7 @@ void display_cycle_weather_anim() {
     weatherDisplayTemp = (displayMode == DISPLAY_WEATHER) ?
                           (int16_t)userNumber : lastAnimTemp;
 
-    Log.printf("[显示] 循环动画(type=%d) -> 温度: %d\n",
+    Serial.printf("[显示] 循环动画(type=%d) -> 温度: %d\n",
                   weatherAnimType, weatherDisplayTemp);
     display_set_mode(DISPLAY_WEATHER);
 }
@@ -659,11 +654,11 @@ void display_toggle_power() {
         if (nightEnabled) {
             display_night_wake();
         } else {
-            Log.println(F("[显示] 打开屏幕"));
+            Serial.println(F("[显示] 打开屏幕"));
             display_set_mode(DISPLAY_TIME);
         }
     } else {
-        Log.println(F("[显示] 关闭屏幕"));
+        Serial.println(F("[显示] 关闭屏幕"));
         display_set_mode(DISPLAY_OFF);
     }
 }
@@ -738,7 +733,7 @@ void display_set_brightness(uint8_t pct) {
         segs_write(lastSegments);
     }
     save_display_config_brightness();
-    Log.printf("[显示] 亮度设为: %d%%\n", brightnessPct);
+    Serial.printf("[显示] 亮度设为: %d%%\n", brightnessPct);
 }
 
 uint8_t display_get_brightness() {
@@ -753,7 +748,7 @@ void display_set_night_config(bool enabled, uint8_t startHour, uint8_t endHour) 
         nightWake = false;
     }
     save_display_config_night();
-    Log.printf("[显示] 夜间模式: %d (%d:00-%d:00)\n", nightEnabled, nightStart, nightEnd);
+    Serial.printf("[显示] 夜间模式: %d (%d:00-%d:00)\n", nightEnabled, nightStart, nightEnd);
 }
 
 bool display_get_night_enabled() {
@@ -773,7 +768,7 @@ void display_night_wake() {
         nightWake = true;
         nightWakeTime = millis();
         display_set_mode(DISPLAY_TIME);
-        Log.println(F("[显示] 夜间按键唤醒"));
+        Serial.println(F("[显示] 夜间按键唤醒"));
     }
 }
 
@@ -793,13 +788,13 @@ void display_rtc_adjust(uint16_t year, uint8_t month, uint8_t day,
     if (!rtcReady) {
         Wire.begin(I2C_SDA, I2C_SCL);
         if (!rtc.begin()) {
-            Log.println(F("[显示] RTC 不可用，无法校准"));
+            Serial.println(F("[显示] RTC 不可用，无法校准"));
             return;
         }
         rtcReady = true;
     }
     rtc.adjust(DateTime(year, month, day, hour, min, sec));
-    Log.printf("[显示] RTC 已校准: %04d-%02d-%02d %02d:%02d:%02d\n",
+    Serial.printf("[显示] RTC 已校准: %04d-%02d-%02d %02d:%02d:%02d\n",
                   year, month, day, hour, min, sec);
     firstRefresh = true;
 }
