@@ -25,6 +25,10 @@ static bool          apTimedOut = false;
 // STA 重连计时
 static unsigned long staReconnectTime = 0;
 
+// 配网等待：AP 在 STA 连接成功后自动关闭
+static bool pendingApDisable = false;
+static unsigned long pendingApStart = 0;
+
 // ============================================================
 // 状态字符串映射（调试用）
 // ============================================================
@@ -120,6 +124,15 @@ static void onWiFiEvent(WiFiEvent_t event) {
         web_server_start_mdns();
         // 触发 NTP 校时
         ntp_force_sync();
+
+        // 配网等待：STA 连接成功后关闭 AP 并恢复时间
+        if (pendingApDisable) {
+            pendingApDisable = false;
+            Serial.println(F("[WiFi] 配网成功，关闭 AP"));
+            WiFi.softAPdisconnect(true);
+            WiFi.mode(WIFI_STA);
+            display_set_mode(DISPLAY_TIME);
+        }
         break;
     }
 
@@ -142,7 +155,7 @@ static void onWiFiEvent(WiFiEvent_t event) {
     case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED: {
         wifiState = WIFI_AP_ACTIVE;
         apStartTime = millis();  // 重新开始超时计时
-        Serial.println(F("[WiFi] log"));
+        Serial.println(F("[WiFi] AP 客户端已断开"));
         break;
     }
 
@@ -156,7 +169,7 @@ static void onWiFiEvent(WiFiEvent_t event) {
 // ============================================================
 
 void wifi_init() {
-    Serial.println(F("[WiFi] log"));
+    Serial.println(F("[WiFi] 初始化..."));
 
     // 注册事件回调
     WiFi.onEvent(onWiFiEvent);
@@ -209,6 +222,11 @@ void wifi_update() {
                                     (s == WL_DISCONNECTED) ? "DISCONNECTED" : "";
             Serial.printf("[WiFi] 连接状态 %s (status=%d)\n", statusStr, s);
         }
+        // 配网等待超时：AP 开启但 STA 长时间未连接成功
+        if (pendingApDisable && now - pendingApStart >= AP_TIMEOUT_MS) {
+            Serial.println(F("[WiFi] 配网等待超时，关闭 AP"));
+            wifi_disable_ap();
+        }
         break;
     }
 
@@ -219,7 +237,6 @@ void wifi_update() {
     case WIFI_AP_ACTIVE:
         // 检查 3 分钟超时
         if (now - apStartTime >= AP_TIMEOUT_MS) {
-            Serial.println(F("[WiFi] log"));
             wifi_disable_ap();
         }
         break;
@@ -262,6 +279,7 @@ void wifi_enable_ap() {
 
 void wifi_disable_ap() {
     Serial.println(F("[WiFi] 关闭 AP 模式..."));
+    pendingApDisable = false;
     display_set_mode(DISPLAY_TIME);
 
     WiFi.softAPdisconnect(true);
@@ -277,21 +295,17 @@ void wifi_disable_ap() {
 
 void wifi_save_and_connect(const char* ssid, const char* password) {
     Serial.printf("[WiFi] 配网完成: %s\n", ssid);
-    display_set_mode(DISPLAY_TIME);
 
     // 保存到 NVS
     save_credentials(ssid, password);
 
-    // 关闭 AP
-    WiFi.softAPdisconnect(true);
-
-    // 切换到 STA 并连接
-    WiFi.mode(WIFI_STA);
+    // AP 保持开启，等待 STA 连接成功后自动关闭
     WiFi.setHostname(MDNS_HOSTNAME);
     WiFi.begin(ssid, password);
     wifiState = WIFI_CONNECTING;
-
-    Serial.println(F("[WiFi] log"));
+    pendingApDisable = true;
+    pendingApStart = millis();
+    Serial.println(F("[WiFi] 等待 STA 连接，AP 暂不关闭"));
 }
 
 void wifi_clear_credentials() {

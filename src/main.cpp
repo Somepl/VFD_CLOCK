@@ -102,10 +102,17 @@ void setup() {
     // --- OTA 无线烧录（配网后可通过 WiFi 更新固件）---
     ArduinoOTA.setHostname(MDNS_HOSTNAME);
     ArduinoOTA.onStart([]() {
+#if ENABLE_CPU_FREQ_DOWN
+        setCpuFrequencyMhz(240);
+        Serial.printf("[OTA] CPU临时升至240MHz\n");
+#endif
         String type = (ArduinoOTA.getCommand() == U_FLASH) ? "固件" : "文件系统";
         Serial.printf("[OTA] 开始更新 %s ...\n", type);
     });
     ArduinoOTA.onEnd([]() {
+#if ENABLE_CPU_FREQ_DOWN
+        setCpuFrequencyMhz(80);
+#endif
         Serial.println(F("[OTA] 更新完成，重启中..."));
     });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {

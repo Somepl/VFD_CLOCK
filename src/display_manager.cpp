@@ -391,7 +391,7 @@ void display_force_off() {
 void display_init() {
     // 立即熄灭所有段，覆盖 74HC595 构造函数默认的全 LOW 状态
     display_force_off();
-    Serial.println(F("[显示] log"));
+    Serial.println(F("[显示] 初始化..."));
 
     // 初始化 I2C（DS3231）
     Wire.begin(I2C_SDA, I2C_SCL);
@@ -409,7 +409,7 @@ void display_init() {
                       now.year(), now.month(), now.day(),
                       now.hour(), now.minute(), now.second());
     } else {
-        Serial.println(F("[显示] log"));
+        Serial.println(F("[显示] 未检测到 DS3231 RTC"));
     }
 
     // 初始状态：RTC 正常 -> 等首次刷新显示时间；RTC 异常 -> 立即显示 "----"

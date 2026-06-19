@@ -151,7 +151,7 @@ static void save_temp_unit() {
 // ============================================================
 
 void weather_init() {
-    Serial.println(F("[天气] log"));
+    Serial.println(F("[天气] 初始化..."));
     httpSslClient.setInsecure();
     load_temp_unit();
     fetchState = WEATHER_IDLE;

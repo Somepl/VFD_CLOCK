@@ -185,7 +185,7 @@ static String buildStatusJson() {
 void web_server_init() {
     if (serverRunning) return;
 
-    Serial.println(F("[Web] log"));
+    Serial.println(F("[Web] 初始化 HTTP 服务器..."));
 
     // --- 挂载 LittleFS ---
     if (!LittleFS.begin(true)) {
@@ -676,7 +676,7 @@ void web_server_init() {
 
     // 重启设备
     server.on("/api/restart", HTTP_POST, [](AsyncWebServerRequest *request) {
-        Serial.println(F("[Web] log"));
+        Serial.println(F("[Web] 收到重启命令，即将重启"));
         AsyncWebServerResponse *resp = request->beginResponse(200, "application/json", "{\"success\":true}");
         request->send(resp);
         delay(1000);
