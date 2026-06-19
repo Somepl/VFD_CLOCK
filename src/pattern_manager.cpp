@@ -1,5 +1,8 @@
 #include "pattern_manager.h"
 #include <LittleFS.h>
+#include <Preferences.h>
+
+#define PM_BUILTIN_NS "builtin"
 
 bool pm_init() {
     if (!LittleFS.begin(true)) {
@@ -58,4 +61,30 @@ bool pm_save_animations(JsonDocument &doc) {
     return pm_save(doc, PM_ANIMATIONS_FILE);
 }
 
+bool pm_get_builtin_override(uint8_t idx, JsonDocument &doc) {
+    Preferences prefs;
+    prefs.begin(PM_BUILTIN_NS, true);
+    String val = prefs.getString(("ov" + String(idx)).c_str(), "");
+    prefs.end();
+    if (val.length() == 0) return false;
+    DeserializationError err = deserializeJson(doc, val);
+    return (err == DeserializationError::Ok);
+}
 
+bool pm_set_builtin_override(uint8_t idx, JsonDocument &doc) {
+    Preferences prefs;
+    prefs.begin(PM_BUILTIN_NS, false);
+    String val;
+    serializeJson(doc, val);
+    bool ok = prefs.putString(("ov" + String(idx)).c_str(), val);
+    prefs.end();
+    return ok;
+}
+
+bool pm_delete_builtin_override(uint8_t idx) {
+    Preferences prefs;
+    prefs.begin(PM_BUILTIN_NS, false);
+    prefs.remove(("ov" + String(idx)).c_str());
+    prefs.end();
+    return true;
+}

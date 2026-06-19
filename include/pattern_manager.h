@@ -20,4 +20,9 @@ bool pm_save_patterns(JsonDocument &doc);
 bool pm_load_animations(JsonDocument &doc);
 bool pm_save_animations(JsonDocument &doc);
 
+// 内置动画 override 存储（Preferences）
+bool pm_get_builtin_override(uint8_t idx, JsonDocument &doc);
+bool pm_set_builtin_override(uint8_t idx, JsonDocument &doc);
+bool pm_delete_builtin_override(uint8_t idx);
+
 #endif

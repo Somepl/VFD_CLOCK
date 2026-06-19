@@ -12,6 +12,7 @@
 #include <RTClib.h>
 #include <ShiftRegister74HC595.h>
 #include <Preferences.h>
+#include "pattern_manager.h"
 
 // ============================================================
 // 硬件实例（全局单例）
@@ -207,6 +208,51 @@ static int16_t weatherDisplayTemp = 0;     // 动画结束后显示的温度
 static uint8_t animCycleIndex = 0;         // 动画循环索引(按键2切换)
 static int16_t lastAnimTemp = 0;           // 最近一次天气温度，循环动画时保持
 #define WEATHER_ANIM_DURATION  3000  // 动画播放时长(ms)
+
+// 天气动画覆写缓冲（从 Preferences 加载用户自定义帧）
+static bool wthrOvValid = false;
+#define WTHR_OV_MAX_FRAMES 30
+static uint8_t wthrOvData[WTHR_OV_MAX_FRAMES][4];
+static uint16_t wthrOvDur[WTHR_OV_MAX_FRAMES];
+static uint8_t wthrOvCount = 0;
+static uint8_t wthrOvIdx = 0;
+static unsigned long wthrOvLastMs = 0;
+
+/** 检查内置动画 idx 是否有用户覆写；若有则填充 wthrOv* 缓冲并返回 true */
+static bool wthr_load_override(uint8_t builtinIdx) {
+    Preferences prefs;
+    prefs.begin("builtin", true);
+    String val = prefs.getString(("ov" + String(builtinIdx)).c_str(), "");
+    prefs.end();
+    if (val.length() == 0) return false;
+
+    DynamicJsonDocument doc(2048);
+    DeserializationError err = deserializeJson(doc, val);
+    if (err != DeserializationError::Ok) return false;
+
+    JsonArray arr = doc.as<JsonArray>();
+    if (arr.size() == 0) return false;
+
+    wthrOvCount = 0;
+    for (JsonVariant fv : arr) {
+        if (wthrOvCount >= WTHR_OV_MAX_FRAMES) break;
+        JsonObject f = fv.as<JsonObject>();
+        JsonArray d = f["data"].as<JsonArray>();
+        if (d.size() != 4) continue;
+        for (int i = 0; i < 4; i++) {
+            wthrOvData[wthrOvCount][i] = d[i].as<uint8_t>();
+        }
+        wthrOvDur[wthrOvCount] = f["duration"].as<uint16_t>();
+        if (wthrOvDur[wthrOvCount] < 50) wthrOvDur[wthrOvCount] = 50;
+        wthrOvCount++;
+    }
+    if (wthrOvCount == 0) return false;
+    wthrOvIdx = 0;
+    wthrOvLastMs = millis();
+    wthrOvValid = true;
+    return true;
+}
+
 // ============================================================
 // 内部辅助函数
 // ============================================================
@@ -439,6 +485,7 @@ void display_update() {
             if (elapsed >= WEATHER_ANIM_DURATION) {
                 // 动画结束，切换到温度显示
                 weatherAnimType = WEATHER_ANIM_NONE;
+                wthrOvValid = false;
                 userNumber = weatherDisplayTemp;
                 weatherStartTime = millis();
                 Serial.printf("[显示] 动画结束，显示温度 %d\n", weatherDisplayTemp);
@@ -548,6 +595,21 @@ void display_show_weather(int16_t temperature) {
     display_set_mode(DISPLAY_WEATHER);
 }
 
+/**
+ * 天气动画 → 内置动画类型索引映射
+ * 0=Sunshine, 1=Raining, 2=Love, 3=Smile, 4=Sad, 5=Nol,
+ * 6=Cloudy, 7=Snow, 8=Thunder, 9=Default
+ */
+static const uint8_t weatherToBuiltinIdx[] = {
+    0,  // 0: NONE
+    0,  // 1: SUN → builtin 0
+    6,  // 2: CLOUD → builtin 6
+    1,  // 3: RAIN → builtin 1
+    7,  // 4: SNOW → builtin 7
+    8,  // 5: THUNDER → builtin 8
+    9,  // 6: DEFAULT → builtin 9
+};
+
 void display_show_weather_with_anim(const char* weatherText, int16_t temperature) {
     weatherAnimType = WEATHER_ANIM_DEFAULT;  // 默认扫描
     if (strstr(weatherText, "晴") != nullptr) {
@@ -562,20 +624,40 @@ void display_show_weather_with_anim(const char* weatherText, int16_t temperature
         weatherAnimType = WEATHER_ANIM_THUNDER;
     }
 
+    // 尝试加载用户覆写
+    uint8_t builtinIdx = weatherAnimType <= 6 ? weatherToBuiltinIdx[weatherAnimType] : 9;
+    if (!wthr_load_override(builtinIdx)) {
+        wthrOvValid = false;
+    }
+
     weatherDisplayTemp = temperature;
     lastAnimTemp = temperature;
     weatherAnimStartTime = millis();
-    Serial.printf("[显示] 天气动画(type=%d) 播3秒 -> 温度: %d\n",
-                  weatherAnimType, temperature);
+    Serial.printf("[显示] 天气动画(type=%d) 播3秒 -> 温度: %d, %s\n",
+                  weatherAnimType, temperature,
+                  wthrOvValid ? "使用覆写" : "默认");
     display_set_mode(DISPLAY_WEATHER);
 }
 
 void display_show_web_anim(uint8_t animType) {
     if (animType > 5) animType = 0;
-    webAnimType = animType;
-    webAnimStartTime = millis();
     const char* names[] = {"Sunshine", "Raining", "Love", "Smile", "Sad", "Nol"};
     Serial.printf("[显示] 网页触发动画: %s\n", names[animType]);
+
+    // 检查是否有用户覆写
+    DynamicJsonDocument overrideDoc(2048);
+    if (pm_get_builtin_override(animType, overrideDoc)) {
+        JsonArray frames = overrideDoc.as<JsonArray>();
+        if (frames.size() > 0) {
+            Serial.println(F("[显示] 使用覆写动画"));
+            display_play_user_anim(frames);
+            return;
+        }
+    }
+
+    // 无覆写，使用默认
+    webAnimType = animType;
+    webAnimStartTime = millis();
     display_set_mode(DISPLAY_ANIMATION);
 }
 
@@ -692,28 +774,38 @@ void display_anim_tick() {
         unsigned long now = millis();
         unsigned long elapsed = now - weatherAnimStartTime;
         if (elapsed < WEATHER_ANIM_DURATION) {
-            const uint8_t (*frames)[4] = nullptr;
-            uint8_t frameCount = 0;
-            uint16_t frameMs = 150;
+            if (wthrOvValid && wthrOvCount > 0) {
+                // 使用覆写：逐帧推进
+                if (now - wthrOvLastMs >= wthrOvDur[wthrOvIdx]) {
+                    wthrOvIdx++;
+                    if (wthrOvIdx >= wthrOvCount) wthrOvIdx = wthrOvCount - 1;
+                    wthrOvLastMs = now;
+                }
+                segs_write(wthrOvData[wthrOvIdx]);
+            } else {
+                const uint8_t (*frames)[4] = nullptr;
+                uint8_t frameCount = 0;
+                uint16_t frameMs = 150;
 
-            switch (weatherAnimType) {
-            case WEATHER_ANIM_SUN:
-                frames = ANIM_SUNNY; frameCount = 2; frameMs = 400; break;
-            case WEATHER_ANIM_CLOUD:
-                frames = ANIM_CLOUDY; frameCount = 4; frameMs = 200; break;
-            case WEATHER_ANIM_RAIN:
-                frames = ANIM_RAINY; frameCount = 6; frameMs = 150; break;
-            case WEATHER_ANIM_SNOW:
-                frames = ANIM_SNOW; frameCount = 4; frameMs = 250; break;
-            case WEATHER_ANIM_THUNDER:
-                frames = ANIM_THUNDER; frameCount = 4; frameMs = 200; break;
-            default:
-                frames = ANIM_DEFAULT; frameCount = 4; frameMs = 250; break;
-            }
+                switch (weatherAnimType) {
+                case WEATHER_ANIM_SUN:
+                    frames = ANIM_SUNNY; frameCount = 2; frameMs = 400; break;
+                case WEATHER_ANIM_CLOUD:
+                    frames = ANIM_CLOUDY; frameCount = 4; frameMs = 200; break;
+                case WEATHER_ANIM_RAIN:
+                    frames = ANIM_RAINY; frameCount = 6; frameMs = 150; break;
+                case WEATHER_ANIM_SNOW:
+                    frames = ANIM_SNOW; frameCount = 4; frameMs = 250; break;
+                case WEATHER_ANIM_THUNDER:
+                    frames = ANIM_THUNDER; frameCount = 4; frameMs = 200; break;
+                default:
+                    frames = ANIM_DEFAULT; frameCount = 4; frameMs = 250; break;
+                }
 
-            if (frames != nullptr) {
-                int idx = (elapsed / frameMs) % frameCount;
-                segs_write(frames[idx]);
+                if (frames != nullptr) {
+                    int idx = (elapsed / frameMs) % frameCount;
+                    segs_write(frames[idx]);
+                }
             }
             return;  // 动画期间跳过 PWM
         }
@@ -868,4 +960,64 @@ void display_rtc_adjust(uint16_t year, uint8_t month, uint8_t day,
     Serial.printf("[显示] RTC 已校准: %04d-%02d-%02d %02d:%02d:%02d\n",
                   year, month, day, hour, min, sec);
     firstRefresh = true;
+}
+
+// ============================================================
+// 内置动画默认数据
+// ============================================================
+const char* BUILTIN_NAMES[10] = {
+    "Sunshine",  // 0
+    "Raining",   // 1
+    "Love",      // 2
+    "Smile",     // 3
+    "Sad",       // 4
+    "Nol",       // 5
+    "Cloudy",    // 6
+    "Snow",      // 7
+    "Thunder",   // 8
+    "Default",   // 9
+};
+
+/**
+ * 将硬编码帧数组（const uint8_t(*)[4], frameCount, frameMs）
+ * 转为 JsonArray 帧序列格式
+ */
+static bool frames_to_json(JsonArray &out, const uint8_t (*frames)[4],
+                           uint8_t count, uint16_t ms) {
+    for (uint8_t i = 0; i < count; i++) {
+        JsonObject f = out.createNestedObject();
+        JsonArray d = f["data"].to<JsonArray>();
+        for (int j = 0; j < 4; j++) {
+            d.add(frames[i][j]);
+        }
+        f["duration"] = ms;
+    }
+    return true;
+}
+
+bool display_get_builtin_default_frames(uint8_t builtinIdx, JsonArray &frames) {
+    switch (builtinIdx) {
+    case 0: // Sunshine
+        return frames_to_json(frames, ANIM_SUNNY, 2, 400);
+    case 1: // Raining
+        return frames_to_json(frames, ANIM_RAINY, 6, 150);
+    case 2: // Love
+        return frames_to_json(frames, LOVE_FRAMES, 6, 180);
+    case 3: // Smile
+        return frames_to_json(frames, ANIM_SMILE, 2, 300);
+    case 4: // Sad
+        return frames_to_json(frames, ANIM_SAD, 2, 300);
+    case 5: // Nol
+        return frames_to_json(frames, ANIM_NOL, 2, 300);
+    case 6: // Cloudy
+        return frames_to_json(frames, ANIM_CLOUDY, 4, 200);
+    case 7: // Snow
+        return frames_to_json(frames, ANIM_SNOW, 4, 250);
+    case 8: // Thunder
+        return frames_to_json(frames, ANIM_THUNDER, 4, 200);
+    case 9: // Default
+        return frames_to_json(frames, ANIM_DEFAULT, 4, 250);
+    default:
+        return false;
+    }
 }

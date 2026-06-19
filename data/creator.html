@@ -15,7 +15,7 @@
         .seg-A { top: 8px; left: 22px; width: 44px; height: 8px; }
         .seg-B { top: 20px; right: 8px; width: 8px; height: 38px; }
         .seg-C { bottom: 38px; right: 8px; width: 8px; height: 38px; }
-        .seg-D { bottom: 8px; left: 22px; width: 44px; height: 8px; }
+        .seg-D { bottom: 16px; left: 22px; width: 44px; height: 8px; }
         .seg-E { bottom: 38px; left: 8px; width: 8px; height: 38px; }
         .seg-F { top: 20px; left: 8px; width: 8px; height: 38px; }
         .seg-G { top: 66px; left: 22px; width: 44px; height: 8px; }
@@ -52,6 +52,7 @@
         .btn-sm { font-size: 10px; padding: 3px 8px; }
         .btn-sel { background: #FFF; }
         .btn-sel:hover { background: #E0E0E0; }
+        .btn-sel.active { background: #C0C0C0; }
 
         .empty-msg { color: #C0C0C0; font-size: 12px; padding: 8px; text-align: center; }
         .section-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
@@ -59,6 +60,12 @@
         .section-tabs .tab.active { background: #808080; color: #FFF; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+
+        .builtin-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+        .builtin-status { font-size: 11px; padding: 2px 6px; border-radius: 2px; }
+        .builtin-status.override { background: #FFE0B0; color: #804000; }
+        .builtin-status.default { background: #E0E0E0; color: #606060; }
+        .builtin-preview { font-family: monospace; font-size: 11px; color: #808080; margin-top: 4px; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -106,6 +113,16 @@
         <div class="hint">提示：编辑器中的段状态 + 时长 → [ + 帧 ] 添加；帧可拖动序号排序。</div>
     </div>
 
+    <!-- ===== 发送数字 ===== -->
+    <div class="editor-panel">
+        <h2>[ 发送数字 ]</h2>
+        <div style="display:flex;gap:6px;align-items:center;">
+            <input type="number" id="numberInput" value="1234" min="0" max="9999" style="flex:1;font-family:monospace;font-size:28px;text-align:center;letter-spacing:4px;border:2px solid #808080;padding:6px;background:#FFF;">
+            <button class="btn btn-primary" onclick="sendNumber()">[ 发送 ]</button>
+        </div>
+        <div class="hint">在数码管上显示 4 位数字（0-9999），30 秒后自动恢复时间</div>
+    </div>
+
     <!-- ===== 内置动画 + 已保存 ===== -->
     <div class="editor-panel">
         <h2>[ 浏览 ]</h2>
@@ -117,15 +134,14 @@
 
         <!-- 内置动画 -->
         <div id="tab-builtin" class="tab-content active">
-            <div class="grid">
-                <button class="btn btn-sel" data-builtin="0">[ ☀️ Sunshine ]</button>
-                <button class="btn btn-sel" data-builtin="1">[ 🌧️ Raining  ]</button>
-                <button class="btn btn-sel" data-builtin="2">[ ❤️ Love     ]</button>
-                <button class="btn btn-sel" data-builtin="3">[ 😊 Smile    ]</button>
-                <button class="btn btn-sel" data-builtin="4">[ 😢 Sad      ]</button>
-                <button class="btn btn-sel" data-builtin="5">[ 😐 Nol      ]</button>
+            <div class="grid" id="builtinGrid"></div>
+            <div id="builtinInfo" style="display:none;" class="builtin-actions">
+                <span id="builtinStatusBadge" class="builtin-status default">默认</span>
+                <button class="btn btn-sm" onclick="playBuiltinAnim()">[ ▶ 播放 ]</button>
+                <button class="btn btn-sm btn-primary" onclick="saveBuiltinOverride()">[ 保存覆写 ]</button>
+                <button class="btn btn-sm" onclick="deleteBuiltinOverride()">[ 还原默认 ]</button>
             </div>
-            <div id="builtinStatus" class="hint"></div>
+            <div id="builtinPreview" class="builtin-preview"></div>
         </div>
 
         <!-- 已存图案 -->
@@ -395,23 +411,132 @@ async function playAnimById(id) {
 // ============================================================
 // 内置动画
 // ============================================================
-document.addEventListener('click', function(e) {
-    const btn = e.target.closest('[data-builtin]');
-    if (!btn) return;
-    const type = parseInt(btn.dataset.builtin);
-    const el = document.getElementById('builtinStatus');
-    const names = ['Sunshine','Raining','Love','Smile','Sad','Nol'];
-    fetchJson('/api/display/animation', 'POST', { type })
-        .then(() => {
-            el.textContent = '✅ ' + names[type] + ' 已触发';
-            el.style.color = '#404040';
-        })
-        .catch(() => {
-            el.textContent = '❌ 触发失败';
-            el.style.color = '#CC0000';
+let _builtinList = [];
+let _selectedBuiltinId = -1;
+
+async function loadBuiltins() {
+    try {
+        const list = await fetchJson('/api/animations/builtin');
+        _builtinList = list || [];
+        renderBuiltinGrid();
+        if (_selectedBuiltinId >= 0) {
+            const found = list.find(x => x.id === _selectedBuiltinId);
+            if (!found) { _selectedBuiltinId = -1; }
+        }
+        updateBuiltinInfo();
+    } catch(e) { console.error('加载内置动画失败:', e); }
+}
+
+function renderBuiltinGrid() {
+    const container = document.getElementById('builtinGrid');
+    container.innerHTML = '';
+    _builtinList.forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-sel' + (b.id === _selectedBuiltinId ? ' active' : '');
+        btn.textContent = b.name;
+        btn.title = b.hasOverride ? '已覆写' : '默认';
+        btn.addEventListener('click', () => selectBuiltin(b.id));
+        container.appendChild(btn);
+    });
+}
+
+function selectBuiltin(id) {
+    _selectedBuiltinId = id;
+    renderBuiltinGrid();
+    updateBuiltinInfo();
+
+    const b = _builtinList.find(x => x.id === id);
+    if (!b) return;
+
+    // Load frames into editor
+    const src = b.hasOverride ? b.override : b.default;
+    if (src && src.length > 0) {
+        frames = src.map(f => ({
+            data: [...f.data],
+            duration: f.duration
+        }));
+        renderFrames();
+    }
+
+    // Sync tube editor with first frame
+    if (src && src.length > 0) {
+        setData(src[0].data);
+    }
+}
+
+function updateBuiltinInfo() {
+    const info = document.getElementById('builtinInfo');
+    const badge = document.getElementById('builtinStatusBadge');
+    const preview = document.getElementById('builtinPreview');
+
+    if (_selectedBuiltinId < 0) {
+        info.style.display = 'none';
+        preview.textContent = '';
+        return;
+    }
+
+    const b = _builtinList.find(x => x.id === _selectedBuiltinId);
+    if (!b) {
+        info.style.display = 'none';
+        preview.textContent = '';
+        return;
+    }
+
+    info.style.display = 'flex';
+    if (b.hasOverride) {
+        badge.textContent = '已覆写';
+        badge.className = 'builtin-status override';
+    } else {
+        badge.textContent = '默认';
+        badge.className = 'builtin-status default';
+    }
+    preview.textContent = (b.default ? b.default.length : 0) + ' 帧';
+}
+
+async function saveBuiltinOverride() {
+    if (_selectedBuiltinId < 0) { alert('请先选择一个内置动画'); return; }
+    if (frames.length === 0) { alert('至少有一帧'); return; }
+    try {
+        await fetchJson('/api/animations/builtin', 'POST', {
+            id: _selectedBuiltinId,
+            frames: frames.map(f => ({ data: f.data, duration: f.duration }))
         });
-    setTimeout(() => { el.textContent = ''; }, 3000);
-});
+        _builtinList = null;
+        await loadBuiltins();
+        selectBuiltin(_selectedBuiltinId);
+    } catch(e) { alert('保存覆写失败: ' + e.message); }
+}
+
+async function deleteBuiltinOverride() {
+    if (_selectedBuiltinId < 0) { alert('请先选择一个内置动画'); return; }
+    if (!confirm('确定还原为默认动画？')) return;
+    try {
+        await fetchJson('/api/animations/builtin', 'DELETE', {
+            id: _selectedBuiltinId
+        });
+        _builtinList = null;
+        await loadBuiltins();
+        selectBuiltin(_selectedBuiltinId);
+    } catch(e) { alert('还原失败: ' + e.message); }
+}
+
+async function playBuiltinAnim() {
+    if (_selectedBuiltinId < 0) return;
+    if (_selectedBuiltinId <= 5) {
+        // Web animation types (0-5)
+        try {
+            await fetchJson('/api/display/animation', 'POST', { type: _selectedBuiltinId });
+        } catch(e) {}
+    } else {
+        // Play frames directly
+        if (frames.length === 0) return;
+        try {
+            await fetchJson('/api/display/anim-play', 'POST', {
+                frames: frames.map(f => ({ data: f.data, duration: f.duration }))
+            });
+        } catch(e) {}
+    }
+}
 
 // ============================================================
 // Tab 切换
@@ -489,6 +614,18 @@ async function loadAnimations() {
 }
 
 // ============================================================
+// 发送数字
+// ============================================================
+async function sendNumber() {
+    const val = parseInt(document.getElementById('numberInput').value);
+    if (isNaN(val) || val < 0 || val > 9999) { alert('请输入 0-9999'); return; }
+    try {
+        await fetchJson('/api/display/number', 'POST', { number: val });
+        document.getElementById('numberInput').value = val;
+    } catch(e) { alert('发送失败: ' + e.message); }
+}
+
+// ============================================================
 // 初始化
 // ============================================================
 const tubeRow = document.getElementById('tubeRow');
@@ -496,6 +633,7 @@ for (let i = 0; i < 4; i++) tubeRow.appendChild(buildTube(i));
 renderTubes();
 loadPatterns();
 loadAnimations();
+loadBuiltins();
 </script>
 </body>
 </html>

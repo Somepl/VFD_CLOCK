@@ -119,4 +119,19 @@ void display_show_raw(const uint8_t data[4]);
 /** 播放用户自定动画（帧序列），播完后恢复时间 */
 void display_play_user_anim(const JsonArray &frames);
 
+// ============================================================
+// 内置动画默认数据查询
+// ============================================================
+
+/** 内置动画名称列表 */
+extern const char* BUILTIN_NAMES[10];
+
+/**
+ * 获取内置动画的硬编码默认帧数据
+ * @param builtinIdx  0-9（Sunshine=0, Raining=1, Love=2, Smile=3, Sad=4, Nol=5, Cloudy=6, Snow=7, Thunder=8, Default=9）
+ * @param frames      输出的 JsonArray，格式同用户动画帧
+ * @return true 成功
+ */
+bool display_get_builtin_default_frames(uint8_t builtinIdx, JsonArray &frames);
+
 #endif // DISPLAY_MANAGER_H

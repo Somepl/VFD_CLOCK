@@ -150,7 +150,7 @@ static void handleConfigPost(AsyncWebServerRequest *request, uint8_t *data, size
 // ============================================================
 
 static String buildStatusJson() {
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<768> doc;
 
     doc["wifiState"]       = wifi_state_str();
     doc["ip"]              = wifi_get_ip();
@@ -164,6 +164,14 @@ static String buildStatusJson() {
                              (dm == DISPLAY_ANIMATION) ? "ANIM" :
                              (dm == DISPLAY_PATTERN) ? "PATTERN" :
                              (dm == DISPLAY_ANIM_PLAY) ? "ANIM_PLAY" : "OFF";
+
+    doc["brightness"] = display_get_brightness();
+
+    uint8_t hh, mm;
+    display_get_hh_mm(hh, mm);
+    char buf[6];
+    snprintf(buf, sizeof(buf), "%02d:%02d", hh, mm);
+    doc["currentTime"] = buf;
 
     String result;
     serializeJson(doc, result);
@@ -405,6 +413,83 @@ void web_server_init() {
             }
             arr.remove(removeIdx);
             pm_save_patterns(doc);
+            request->send(200, "application/json", "{\"success\":true}");
+        });
+
+    // ============================================================
+    // 内置动画管理（必须在 /api/animations 之前注册！ESPAsyncWebServer 前缀匹配）
+    // ============================================================
+
+    // GET /api/animations/builtin — 列出所有内置动画（含默认帧 + 覆写）
+    server.on("/api/animations/builtin", HTTP_GET,
+        [](AsyncWebServerRequest *request) {
+            DynamicJsonDocument doc(8192);
+            JsonArray arr = doc.to<JsonArray>();
+            for (uint8_t i = 0; i < 10; i++) {
+                JsonObject obj = arr.createNestedObject();
+                obj["id"] = i;
+                obj["name"] = BUILTIN_NAMES[i];
+
+                // 检查是否有覆写
+                DynamicJsonDocument ovDoc(2048);
+                bool hasOverride = pm_get_builtin_override(i, ovDoc);
+                obj["hasOverride"] = hasOverride;
+                if (hasOverride) {
+                    obj["override"] = ovDoc.as<JsonArray>();
+                }
+
+                // 默认帧数据
+                JsonArray defFrames = obj["default"].to<JsonArray>();
+                display_get_builtin_default_frames(i, defFrames);
+            }
+            String out;
+            serializeJson(doc, out);
+            request->send(200, "application/json", out);
+        });
+
+    // POST /api/animations/builtin — 保存覆写
+    server.on("/api/animations/builtin", HTTP_POST,
+        [](AsyncWebServerRequest *request) {},
+        nullptr,
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+            StaticJsonDocument<2048> body;
+            DeserializationError err = deserializeJson(body, data, len);
+            if (err || !body.containsKey("id") || !body.containsKey("frames")) {
+                request->send(400, "application/json", "{\"error\":\"id和frames必填\"}");
+                return;
+            }
+            uint8_t id = body["id"];
+            if (id > 9) {
+                request->send(400, "application/json", "{\"error\":\"id 0-9\"}");
+                return;
+            }
+            JsonArray frames = body["frames"].as<JsonArray>();
+            DynamicJsonDocument saveDoc(2048);
+            saveDoc.set(frames);
+            if (pm_set_builtin_override(id, saveDoc)) {
+                request->send(200, "application/json", "{\"success\":true}");
+            } else {
+                request->send(500, "application/json", "{\"error\":\"保存失败\"}");
+            }
+        });
+
+    // DELETE /api/animations/builtin — 删除覆写
+    server.on("/api/animations/builtin", HTTP_DELETE,
+        [](AsyncWebServerRequest *request) {},
+        nullptr,
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+            StaticJsonDocument<128> body;
+            DeserializationError err = deserializeJson(body, data, len);
+            if (err || !body.containsKey("id")) {
+                request->send(400, "application/json", "{\"error\":\"id必填\"}");
+                return;
+            }
+            uint8_t id = body["id"];
+            if (id > 9) {
+                request->send(400, "application/json", "{\"error\":\"id 0-9\"}");
+                return;
+            }
+            pm_delete_builtin_override(id);
             request->send(200, "application/json", "{\"success\":true}");
         });
 

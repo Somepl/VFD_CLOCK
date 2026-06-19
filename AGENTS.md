@@ -12,11 +12,33 @@ Architecture: single-thread `loop() + millis()` non-blocking.
 pio run                    # build
 pio run -t upload          # wired flash (hold IO0 → EN → release IO0 → release IO0)
 pio run -t upload --upload-port 192.168.x.x   # OTA flash (device must be on WiFi with ArduinoOTA running)
-pio run -t uploadfs        # flash LittleFS web files (data/ directory)
+pio run -t uploadfs        # flash LittleFS web files (data/ directory) — USB only, OTA unreliable for 10MB partition
 pio device monitor -b 115200   # serial monitor
 ```
 
 > **OTA 仅限已烧录过一次的设备**。首次烧录必须用 USB 有线方式。OTA 失败时（"No response from device"）说明设备上运行的是旧固件或无 OTA 支持，需先用有线烧录一次。
+
+### 烧录方案（日常工作流）
+
+| 目标 | 命令/方式 | 途径 | 说明 |
+|------|-----------|------|------|
+| 固件 | `pio run -t upload --upload-port <IP>` | OTA | 3MB 分区，OTA 稳定可靠 |
+| 网页文件 | 浏览器打开 `http://<IP>/fs.html` | HTTP 上传 | 通过 `/api/fs/upload` 逐个上传 `data/` 目录中的文件 |
+| 全量更新 | 先 OTA 固件，再网页上传 data 文件 | 全远程 | 无需插 USB |
+
+> 网页上传步骤：打开设备 `fs.html` → 选择 `data/` 中的文件 → 点击上传。文件管理页也支持删除和列出已上传文件。
+>
+> 也可用 curl 直接上传（适合自动化/AI 操作）：
+> ```bash
+> curl.exe -F "file=@data/index.html" http://<IP>/api/fs/upload
+> curl.exe -F "file=@data/creator.html" http://<IP>/api/fs/upload
+> # 也可一次传多个文件
+> ```
+>
+> 旧方案 `pio run -t uploadfs`（USB 有线烧写 LittleFS 分区）已废弃，改用网页 API 上传，更灵活且无需物理接触设备。
+
+- 设备 mDNS 主机名 `clock`，通常可通过 `clock.local` 解析，但 Windows 可能不支持 mDNS；建议用路由器 DHCP 列表确认 IP。
+- OTA 前确保串口监视器已关闭（串口独占）。
 
 - Build uses custom `esptool.cfg` (hardware lacks DTR/RTS auto-reset).
 - Pre-build script `esptool_cfg.py` 仅在 `upload_protocol = esptool` 时注入 `--configfile`，`espota` 协议下跳过。
