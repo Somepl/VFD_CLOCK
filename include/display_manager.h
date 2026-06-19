@@ -72,6 +72,9 @@ void display_toggle_power();
 /** 从 DS3231 读取当前小时和分钟 */
 void display_get_hh_mm(uint8_t &hour, uint8_t &minute);
 
+/** 读取 DS3231 内部温度传感器（摄氏度） */
+float display_get_rtc_temp();
+
 /** 校准 DS3231 RTC 时间（由 NTP 同步模块调用） */
 void display_rtc_adjust(uint16_t year, uint8_t month, uint8_t day,
                         uint8_t hour, uint8_t min, uint8_t sec);

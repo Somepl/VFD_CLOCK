@@ -179,7 +179,7 @@ void weather_update() {
 #if ENABLE_AMAP_LOCATION
             if (strlen(AMAP_API_KEY) > 0) {
                 Serial.printf("[天气] 使用高德IP定位\n");
-                String path = String("/v3/ipkey=") + AMAP_API_KEY;
+                String path = String("/v3/ip?key=") + AMAP_API_KEY;
                 http_start("restapi.amap.com", 443, path.c_str(), true, 4000);
             } else
 #endif

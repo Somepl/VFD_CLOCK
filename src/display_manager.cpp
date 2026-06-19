@@ -783,6 +783,13 @@ void display_get_hh_mm(uint8_t &hour, uint8_t &minute) {
     }
 }
 
+float display_get_rtc_temp() {
+    if (rtcReady) {
+        return rtc.getTemperature();
+    }
+    return -127.0f;
+}
+
 void display_rtc_adjust(uint16_t year, uint8_t month, uint8_t day,
                         uint8_t hour, uint8_t min, uint8_t sec) {
     if (!rtcReady) {
