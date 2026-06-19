@@ -6,6 +6,7 @@
 #include "wifi_manager.h"
 #include "web_server.h"
 #include "ntp_sync.h"
+#include "display_manager.h"
 #include <Preferences.h>
 
 // ============================================================
@@ -242,6 +243,7 @@ void wifi_enable_ap() {
     // 配置 AP
     if (WiFi.softAP(AP_SSID, AP_PASSWORD, AP_CHANNEL)) {
         wifiState = WIFI_AP_ACTIVE;
+        display_show_ap();
         apStartTime = millis();
         apTimedOut = false;
 
@@ -260,6 +262,7 @@ void wifi_enable_ap() {
 
 void wifi_disable_ap() {
     Serial.println(F("[WiFi] 关闭 AP 模式..."));
+    display_set_mode(DISPLAY_TIME);
 
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);
@@ -274,6 +277,7 @@ void wifi_disable_ap() {
 
 void wifi_save_and_connect(const char* ssid, const char* password) {
     Serial.printf("[WiFi] 配网完成: %s\n", ssid);
+    display_set_mode(DISPLAY_TIME);
 
     // 保存到 NVS
     save_credentials(ssid, password);

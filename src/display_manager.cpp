@@ -557,6 +557,13 @@ void display_update() {
         break;
     }
 
+    case DISPLAY_AP: {
+        // 管3 'A' (A+F+B+G+E+C), 管4 'P' (A+F+B+G+E)
+        uint8_t apSegs[4] = {SEGMENT_BLANK, SEGMENT_BLANK, 0x11, 0x31};
+        segs_write(apSegs);
+        break;
+    }
+
     case DISPLAY_OFF:
         write_all_off();
         break;
@@ -578,6 +585,11 @@ void display_set_mode(DisplayMode mode) {
 
 DisplayMode display_get_mode() {
     return displayMode;
+}
+
+void display_show_ap() {
+    Serial.println(F("[显示] AP配网模式"));
+    display_set_mode(DISPLAY_AP);
 }
 
 void display_show_number(uint16_t number) {
@@ -729,6 +741,9 @@ void display_toggle_power() {
             Serial.println(F("[显示] 打开屏幕"));
             display_set_mode(DISPLAY_TIME);
         }
+    } else if (displayMode == DISPLAY_AP) {
+        Serial.println(F("[显示] 关闭屏幕（AP模式）"));
+        display_set_mode(DISPLAY_OFF);
     } else {
         Serial.println(F("[显示] 关闭屏幕"));
         display_set_mode(DISPLAY_OFF);

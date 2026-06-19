@@ -25,7 +25,8 @@ enum DisplayMode {
     DISPLAY_OFF,            // 关闭显示
     DISPLAY_ANIMATION,      // 网页触发的内置动画
     DISPLAY_PATTERN,        // 用户自定义单帧图案
-    DISPLAY_ANIM_PLAY       // 用户自定义动画播放
+    DISPLAY_ANIM_PLAY,      // 用户自定义动画播放
+    DISPLAY_AP              // AP 配网模式显示 "AP"
 };
 
 // ============================================================
@@ -65,6 +66,9 @@ void display_show_weather_with_anim(const char* weatherText, int16_t temperature
 
 /** 循环到下一个动画类型（已显示天气时按按键2切换） */
 void display_cycle_weather_anim();
+
+/** 进入 AP 配网模式，显示 "AP"（管3-4） */
+void display_show_ap();
 
 /** 切换屏幕开关（TIME <-> OFF） */
 void display_toggle_power();
