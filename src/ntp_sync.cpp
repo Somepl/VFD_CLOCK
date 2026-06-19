@@ -54,29 +54,16 @@ static bool needs_sync() {
 }
 
 // ============================================================
-// 内部：将 NTP 时间写入 RTC
+// 内部：将 NTP 时间写入 RTC（使用已在调用方验证过的 tm 结构）
 // ============================================================
 
-static bool write_ntp_to_rtc() {
-    struct tm timeinfo;
-    if (!getLocalTime(&timeinfo, 3000)) {  // 3秒超时
-        return false;
-    }
-
-    // 验证时间合理性（年份必须 > 2024）
-    if (timeinfo.tm_year + 1900 < 2024) {
-        Serial.printf("[NTP] 时间不合理: %d\n", timeinfo.tm_year + 1900);
-        return false;
-    }
-
-    // 通过 display_manager 校准 RTC（共用同一 RTC 实例）
+static bool write_ntp_to_rtc(const struct tm &timeinfo) {
     display_rtc_adjust(timeinfo.tm_year + 1900,
                        timeinfo.tm_mon + 1,
                        timeinfo.tm_mday,
                        timeinfo.tm_hour,
                        timeinfo.tm_min,
                        timeinfo.tm_sec);
-
     return true;
 }
 
@@ -116,16 +103,12 @@ void ntp_update() {
         bool got = getLocalTime(&dummy, 0);  // 0 = 不等待，立即返回
 
         if (got && (dummy.tm_year + 1900 >= 2024)) {
-            // 时间有效，写入 RTC
-            if (write_ntp_to_rtc()) {
-                ntpState = NTP_DONE;
-                lastSyncTime = millis();
-                syncedOnce = true;
-                Serial.println(F("[NTP] 同步成功"));
-            } else {
-                ntpState = NTP_FAILED;
-                Serial.println(F("[NTP] RTC写入失败"));
-            }
+            // 时间有效，写入 RTC（零阻塞，dummy 已在上面验证过）
+            write_ntp_to_rtc(dummy);
+            ntpState = NTP_DONE;
+            lastSyncTime = millis();
+            syncedOnce = true;
+            Serial.println(F("[NTP] 同步成功"));
         } else if (millis() - syncStartTime >= NTP_TIMEOUT_MS) {
             // 超时
             ntpState = NTP_FAILED;
