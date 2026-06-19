@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLOCK - 触摸校准</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .btn-sm { font-size: 10px; padding: 2px 8px; margin-left: 4px; }
+        .live-panel { display: flex; gap: 12px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
+        .touch-card { background: #F8F8F8; border: 2px solid #808080; padding: 12px; text-align: center; min-width: 110px; }
+        .touch-card .label { font-size: 10px; color: #808080; text-transform: uppercase; }
+        .touch-card .raw-value { font-size: 28px; font-weight: bold; margin: 8px 0; font-family: monospace; }
+        .touch-card .raw-value.low { color: #CC2200; }
+        .touch-card .raw-value.high { color: #404040; }
+        .threshold-slider { width: 100%; margin: 4px 0; }
+        .hyst-slider { width: 100%; max-width: 200px; margin: 4px 0; }
+        .stat-row { display: flex; justify-content: space-between; font-size: 11px; color: #808080; }
+        .calibrate-hint { font-size: 11px; color: #CC2200; margin-top: 4px; }
+        .btn-auto { margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <pre class="logo">
+  _____ _   _  ___  ____  _   _  __
+ |_   _| | | |/ _ \/ ___|| | | |/ /
+   | | | |_| | | | \___ \| |_| | ' \
+   | | |  _  | |_| |___) |  _  | . \
+   |_| |_| |_|\___/|____/|_| |_|_|\_\
+            </pre>
+            <h1>触摸校准</h1>
+            <p class="subtitle">手指触摸各按键，观察读数变化，调整阈值</p>
+        </header>
+
+        <div class="panel">
+            <h2>实时读数</h2>
+            <div class="live-panel" id="livePanel"></div>
+            <p class="hint">松开时读数应 > 阈值，按下时读数应 << 阈值</p>
+        </div>
+
+        <div class="panel">
+            <h2>一键校准</h2>
+            <p class="hint">松开所有按键后点击下方按钮，自动设置阈值</p>
+            <button class="btn btn-primary" onclick="autoCalibrate()" style="width:100%;">[ 自动校准 ]</button>
+            <div id="autoStatus" class="hint" style="color:#CC2200;"></div>
+        </div>
+
+        <div class="panel">
+            <h2>滞后值 (Hysteresis)</h2>
+            <p class="hint">防止读数在阈值附近抖动导致误触发</p>
+            <div class="stat-row">
+                <span>滞后: <span id="hystVal">15</span></span>
+                <span><input type="range" id="hystSlider" class="hyst-slider" min="1" max="50" value="15"
+                     oninput="setHysteresis(this.value)"></span>
+            </div>
+        </div>
+
+        <footer>
+            <a href="index.html" class="btn btn-sm">[ 返回主页 ]</a>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        const btnNames = ['配网 (T4)', '天气 (T2)', '开关屏 (T15)'];
+        let liveTimer = null;
+
+        function buildCards() {
+            const panel = document.getElementById('livePanel');
+            for (let i = 0; i < 3; i++) {
+                const card = document.createElement('div');
+                card.className = 'touch-card';
+                card.id = 'card-' + i;
+                card.innerHTML = `
+                    <div class="label">${btnNames[i]}</div>
+                    <div class="raw-value" id="raw-${i}">--</div>
+                    <div class="stat-row">
+                        <span>阈值: <span id="thrLabel-${i}">40</span></span>
+                        <span><button class="btn btn-sm" onclick="captureThreshold(${i})">[ 捕获 ]</button></span>
+                    </div>
+                    <input type="range" id="thrSlider-${i}" class="threshold-slider"
+                           min="5" max="120" value="40"
+                           oninput="setThreshold(${i}, this.value)">
+                `;
+                panel.appendChild(card);
+            }
+        }
+
+        async function refresh() {
+            try {
+                const cfg = await fetchJson('/api/config');
+                const raws = cfg.touchRaw || [0,0,0];
+                const thrs = cfg.touchThresholds || [40,40,40];
+                const hyst = cfg.touchHysteresis || 15;
+
+                for (let i = 0; i < 3; i++) {
+                    const el = document.getElementById('raw-' + i);
+                    const v = raws[i];
+                    el.textContent = v;
+                    el.className = 'raw-value' + (v < thrs[i] ? ' low' : ' high');
+
+                    document.getElementById('thrLabel-' + i).textContent = thrs[i];
+
+                    const slider = document.getElementById('thrSlider-' + i);
+                    if (slider.value != thrs[i]) slider.value = thrs[i];
+                }
+
+                document.getElementById('hystVal').textContent = hyst;
+                const hystSlider = document.getElementById('hystSlider');
+                if (hystSlider.value != hyst) hystSlider.value = hyst;
+            } catch (e) {}
+        }
+
+        async function setThreshold(idx, val) {
+            document.getElementById('thrLabel-' + idx).textContent = val;
+            try {
+                const cfg = await fetchJson('/api/config', 'POST', {
+                    touchThresholds: [
+                        idx === 0 ? parseInt(val) : parseInt(document.getElementById('thrSlider-0').value),
+                        idx === 1 ? parseInt(val) : parseInt(document.getElementById('thrSlider-1').value),
+                        idx === 2 ? parseInt(val) : parseInt(document.getElementById('thrSlider-2').value)
+                    ]
+                });
+            } catch (e) {}
+        }
+
+        async function setHysteresis(val) {
+            document.getElementById('hystVal').textContent = val;
+            try {
+                await fetchJson('/api/config', 'POST', { touchHysteresis: parseInt(val) });
+            } catch (e) {}
+        }
+
+        async function captureThreshold(idx) {
+            try {
+                const cfg = await fetchJson('/api/config');
+                const raw = cfg.touchRaw[idx] || 0;
+                const suggested = Math.max(5, raw - 20);
+                const slider = document.getElementById('thrSlider-' + idx);
+                slider.value = suggested;
+                await setThreshold(idx, suggested);
+                document.getElementById('autoStatus').textContent =
+                    '按键' + (idx+1) + ' 松开读数=' + raw + ' → 建议阈值=' + suggested;
+            } catch (e) {}
+        }
+
+        async function autoCalibrate() {
+            const status = document.getElementById('autoStatus');
+            status.textContent = '请松开所有按键...';
+            await new Promise(r => setTimeout(r, 1500));
+
+            try {
+                const cfg = await fetchJson('/api/config');
+                const raws = cfg.touchRaw || [0,0,0];
+                const hyst = cfg.touchHysteresis || 15;
+
+                const thresholds = raws.map(r => Math.max(5, Math.min(120, r - 20)));
+
+                await fetchJson('/api/config', 'POST', { touchThresholds: thresholds, touchHysteresis: hyst });
+                for (let i = 0; i < 3; i++) {
+                    document.getElementById('thrSlider-' + i).value = thresholds[i];
+                }
+                status.textContent = '校准完成！阈值已设为: ' + thresholds.join(', ');
+            } catch (e) {
+                status.textContent = '校准失败: ' + e.message;
+            }
+        }
+
+        buildCards();
+        refresh();
+        liveTimer = setInterval(refresh, 500);
+    </script>
+</body>
+</html>

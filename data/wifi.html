@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi 配网 - CLOCK</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>[ WiFi 配网 ]</h1>
+            <a href="/" class="btn btn-sm">[ &lt; 返回 ]</a>
+        </header>
+
+        <section class="panel">
+            <h2>扫描网络</h2>
+            <button id="scanBtn" class="btn" onclick="scanNetworks()">[ 扫描附近 WiFi ]</button>
+            <p id="scanStatus" class="hint"></p>
+            <div id="networkList" class="network-list"></div>
+        </section>
+
+        <section class="panel">
+            <h2>连接</h2>
+            <div class="form-group">
+                <label>WiFi 名称 (SSID):</label>
+                <input type="text" id="ssidInput" class="input" placeholder="点击上方列表自动填入">
+            </div>
+            <div class="form-group">
+                <label>密码:</label>
+                <input type="password" id="passInput" class="input" placeholder="输入WiFi密码">
+            </div>
+            <button id="connectBtn" class="btn btn-primary" onclick="connectWiFi()">[ 保存并连接 ]</button>
+            <p id="connectStatus" class="hint"></p>
+        </section>
+
+        <section class="panel">
+            <h2>当前状态</h2>
+            <div class="status-row"><span class="label">状态:</span><span id="statusText">--</span></div>
+            <div class="status-row"><span class="label">IP:</span><span id="statusIp">--</span></div>
+        </section>
+
+        <footer><a href="/" class="btn btn-sm">[ 返回首页 ]</a></footer>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        async function updateStatus() {
+            try {
+                const data = await fetchJson('/api/status');
+                document.getElementById('statusText').textContent = data.wifiState;
+                document.getElementById('statusIp').textContent = data.ip;
+            } catch (e) {
+                document.getElementById('statusText').textContent = 'OFFLINE';
+                document.getElementById('statusIp').textContent = '--';
+            }
+        }
+
+        async function scanNetworks() {
+            const btn = document.getElementById('scanBtn');
+            const status = document.getElementById('scanStatus');
+            const list = document.getElementById('networkList');
+
+            btn.disabled = true;
+            btn.textContent = '[ 扫描中... ]';
+            status.textContent = '正在扫描...';
+            list.innerHTML = '';
+
+            try {
+                const networks = await fetchJson('/api/wifi/scan');
+                if (networks.length === 0) {
+                    status.textContent = '未发现网络';
+                } else {
+                    status.textContent = '发现 ' + networks.length + ' 个网络，点击选择：';
+                    networks.sort((a, b) => a.rssi - b.rssi); // 信号强的排前面
+                    networks.forEach(net => {
+                        const row = document.createElement('div');
+                        row.className = 'network-row';
+                        const icon = net.encrypted ? '[x]' : '[ ]';
+                        row.innerHTML = icon + ' ' + net.ssid + ' <span class="rssi">(' + net.rssi + ' dBm)</span>';
+                        row.onclick = () => {
+                            document.getElementById('ssidInput').value = net.ssid;
+                            // 高亮选中行
+                            document.querySelectorAll('.network-row.selected').forEach(el => el.classList.remove('selected'));
+                            row.classList.add('selected');
+                        };
+                        list.appendChild(row);
+                    });
+                }
+            } catch (e) {
+                status.textContent = '扫描失败，请重试';
+            }
+
+            btn.disabled = false;
+            btn.textContent = '[ 扫描附近 WiFi ]';
+        }
+
+        async function connectWiFi() {
+            const ssid = document.getElementById('ssidInput').value.trim();
+            const password = document.getElementById('passInput').value;
+            const status = document.getElementById('connectStatus');
+            const btn = document.getElementById('connectBtn');
+
+            if (!ssid) {
+                status.textContent = '请输入 WiFi 名称';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '[ 连接中... ]';
+            status.textContent = '正在连接 ' + ssid + ' ...';
+
+            try {
+                const result = await fetchJson('/api/wifi/connect', 'POST', { ssid, password });
+                if (result.success) {
+                    status.textContent = '连接成功！IP 地址可能已变更，请用新地址访问';
+                    // 如果已连接STA，3秒后尝试跳转到 clock.local
+                    setTimeout(() => {
+                        updateStatus();
+                    }, 3000);
+                } else {
+                    status.textContent = '连接失败: ' + (result.error || '未知错误');
+                }
+            } catch (e) {
+                status.textContent = '请求失败，请检查网络';
+            }
+
+            btn.disabled = false;
+            btn.textContent = '[ 保存并连接 ]';
+        }
+
+        // 页面加载时更新状态
+        setInterval(updateStatus, 5000);
+        window.addEventListener('DOMContentLoaded', updateStatus);
+    </script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLOCK - 文件管理</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>文件管理</h1>
+            <p class="subtitle">上传 / 删除 LittleFS 文件</p>
+        </header>
+
+        <div class="panel">
+            <h2>上传文件</h2>
+            <div class="form-group">
+                <input type="file" id="fileInput" class="input" multiple>
+            </div>
+            <button class="btn btn-primary" onclick="uploadFiles()" style="width:100%;">[ 开始上传 ]</button>
+            <div id="uploadStatus" class="hint"></div>
+            <div id="progressList"></div>
+        </div>
+
+        <div class="panel">
+            <h2>已有文件</h2>
+            <div id="fileList">
+                <p class="hint">加载中...</p>
+            </div>
+        </div>
+
+        <footer>
+            <a href="index.html" class="btn btn-sm">[ 返回主页 ]</a>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        async function loadFileList() {
+            try {
+                const files = await fetchJson('/api/fs/list');
+                const el = document.getElementById('fileList');
+                if (!files.length) {
+                    el.innerHTML = '<p class="hint">(空)</p>';
+                    return;
+                }
+                let html = '<table style="width:100%;border-collapse:collapse;">' +
+                           '<tr><th style="text-align:left;padding:4px;">文件名</th>' +
+                           '<th style="text-align:right;padding:4px;">大小</th>' +
+                           '<th style="width:60px;"></th></tr>';
+                for (const f of files) {
+                    const size = f.size < 1024 ? f.size + 'B' :
+                                (f.size / 1024).toFixed(1) + 'KB';
+                    html += '<tr>' +
+                            '<td style="padding:4px;">' + f.name + '</td>' +
+                            '<td style="text-align:right;padding:4px;color:#888;">' + size + '</td>' +
+                            '<td style="text-align:center;"><button class="btn btn-sm" ' +
+                            'onclick="deleteFile(\'' + f.name.replace(/'/g, "\\'") + '\')">删除</button></td>' +
+                            '</tr>';
+                }
+                html += '</table>';
+                el.innerHTML = html;
+            } catch (e) {
+                document.getElementById('fileList').innerHTML = '<p class="hint">加载失败</p>';
+            }
+        }
+
+        async function uploadFiles() {
+            const input = document.getElementById('fileInput');
+            const status = document.getElementById('uploadStatus');
+            const progress = document.getElementById('progressList');
+
+            if (!input.files.length) {
+                status.textContent = '请先选择文件';
+                return;
+            }
+
+            status.textContent = '上传中...';
+            progress.innerHTML = '';
+
+            const formData = new FormData();
+            for (const file of input.files) {
+                formData.append('files', file);
+                progress.innerHTML += '<p class="hint">' + file.name + ' (' + file.size + 'B)</p>';
+            }
+
+            try {
+                // Use fetch with multipart form data
+                const resp = await fetch('/api/fs/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await resp.json();
+                status.textContent = '上传完成 (' + input.files.length + ' 个文件)';
+                input.value = '';
+                loadFileList();
+            } catch (e) {
+                status.textContent = '上传失败: ' + e.message;
+            }
+        }
+
+        async function deleteFile(name) {
+            if (!confirm('确定删除 ' + name + ' 吗？')) return;
+            try {
+                const result = await fetchJson('/api/fs/delete', 'POST', { name: name });
+                if (result.success) {
+                    loadFileList();
+                } else {
+                    alert('删除失败');
+                }
+            } catch (e) {
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        loadFileList();
+    </script>
+</body>
+</html>

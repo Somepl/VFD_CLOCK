@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLOCK - 远程控制</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .status-badge { display: inline-block; padding: 2px 8px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .status-badge.online { background: #00AA00; color: #FFF; }
+        .status-badge.offline { background: #808080; color: #FFF; }
+        .status-badge.connecting { background: #CCAA00; color: #FFF; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <pre class="logo">
+  ____                _        ____      _
+ |  _ \ ___  ___ ___(_) ___  / ___|___ | |_   _ _ __
+ | |_) / _ \/ __/ _ \ |/ __| | |   / _ \| | | | | '_ \
+ |  _ <  __/ (_|  __/ | (__  | |__| (_) | | |_| | | | |
+ |_| \_\___|\___\___|_|\___|  \____\___/|_|\__,_|_| |_|
+            </pre>
+            <h1>远程控制</h1>
+            <p class="subtitle">通过 MQTT 从公网控制时钟</p>
+        </header>
+
+        <div class="panel">
+            <h2>状态</h2>
+            <div class="status-row">
+                <span class="label">连接状态:</span>
+                <span id="remoteState" class="status-badge offline">--</span>
+            </div>
+            <div class="status-row">
+                <span class="label">代理:</span>
+                <span id="remoteUrlDisplay" class="value">--</span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>配置</h2>
+            <div class="form-group">
+                <label>MQTT 代理地址</label>
+                <input type="text" id="urlInput" class="input" placeholder="broker.emqx.io:1883" value="broker.emqx.io:1883">
+            </div>
+            <div class="form-group">
+                <label>主题密钥</label>
+                <input type="password" id="pwdInput" class="input" placeholder="与 Worker PASSWORD 一致">
+            </div>
+            <button class="btn btn-primary" onclick="saveRemoteConfig()" style="width:100%;">[ 保存并连接 ]</button>
+            <button class="btn" onclick="disableRemote()" style="width:100%;margin-top:8px;">[ 禁用远程控制 ]</button>
+            <div id="remoteStatus" class="hint"></div>
+        </div>
+
+        <div class="panel">
+            <h2>使用说明</h2>
+            <p class="hint">1. MQTT 代理地址填 broker.emqx.io:1883（或自建代理）</p>
+            <p class="hint">2. 主题密钥和 Worker 的 PASSWORD 变量一致</p>
+            <p class="hint">3. 手机访问 https://clock.somepl.online 即可控制</p>
+        </div>
+
+        <footer>
+            <a href="index.html" class="btn btn-sm">[ 返回主页 ]</a>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        async function loadStatus() {
+            try {
+                const cfg = await fetchJson('/api/config');
+                document.getElementById('remoteUrlDisplay').textContent = cfg.remoteUrl || '(未配置)';
+
+                const stateEl = document.getElementById('remoteState');
+                const s = cfg.remoteState || 'DISABLED';
+                stateEl.textContent = s;
+                stateEl.className = 'status-badge ' + (
+                    s === 'CONNECTED' ? 'online' :
+                    s === 'CONNECTING' ? 'connecting' : 'offline'
+                );
+            } catch (e) {}
+        }
+
+        async function loadConfig() {
+            try {
+                const cfg = await fetchJson('/api/config');
+                document.getElementById('remoteUrlDisplay').textContent = cfg.remoteUrl || '(未配置)';
+                document.getElementById('urlInput').value = cfg.remoteUrl || '';
+                document.getElementById('pwdInput').value = cfg.remotePassword || '';
+
+                const stateEl = document.getElementById('remoteState');
+                const s = cfg.remoteState || 'DISABLED';
+                stateEl.textContent = s;
+                stateEl.className = 'status-badge ' + (
+                    s === 'CONNECTED' ? 'online' :
+                    s === 'CONNECTING' ? 'connecting' : 'offline'
+                );
+            } catch (e) {}
+        }
+
+        async function saveRemoteConfig() {
+            const url = document.getElementById('urlInput').value.trim();
+            const pwd = document.getElementById('pwdInput').value.trim();
+            const status = document.getElementById('remoteStatus');
+
+            if (!url || !pwd) {
+                status.textContent = '请填写 Worker 地址和密码';
+                return;
+            }
+
+            status.textContent = '保存中...';
+            try {
+                await fetchJson('/api/config', 'POST', { remoteUrl: url, remotePassword: pwd });
+                status.textContent = '已保存，正在连接...';
+                setTimeout(loadStatus, 2000);
+            } catch (e) {
+                status.textContent = '保存失败: ' + e.message;
+            }
+        }
+
+        async function disableRemote() {
+            const status = document.getElementById('remoteStatus');
+            try {
+                await fetchJson('/api/config', 'POST', { remoteUrl: '', remotePassword: '' });
+                status.textContent = '已禁用远程控制';
+                setTimeout(loadStatus, 1000);
+            } catch (e) {
+                status.textContent = '操作失败';
+            }
+        }
+
+        loadConfig();
+        setInterval(loadStatus, 5000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,390 @@
+/*
+ * style.css — 白灰像素复古风格
+ *
+ * 色板: #FFF(白) #E0E0E0(浅灰) #C0C0C0(中灰) #808080(深灰) #404040(暗灰)
+ * 字体: 系统等宽字体
+ * 设计: 无圆角、实线边框、像素风格按钮
+ */
+
+/* ============================================================
+   基础重置
+   ============================================================ */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "Courier New", Courier, monospace;
+    background-color: #E0E0E0;
+    color: #404040;
+    line-height: 1.6;
+    min-height: 100vh;
+    padding: 16px;
+}
+
+/* ============================================================
+   布局
+   ============================================================ */
+
+.container {
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+/* ============================================================
+   头部
+   ============================================================ */
+
+header {
+    background: #FFFFFF;
+    border: 2px solid #808080;
+    padding: 16px;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+header h1 {
+    font-size: 18px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #404040;
+}
+
+.logo {
+    font-size: 10px;
+    line-height: 1.2;
+    color: #808080;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.subtitle {
+    font-size: 11px;
+    color: #808080;
+    margin-top: 4px;
+}
+
+/* ============================================================
+   面板
+   ============================================================ */
+
+.panel {
+    background: #FFFFFF;
+    border: 2px solid #808080;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.panel h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #808080;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #C0C0C0;
+}
+
+.status-panel {
+    background: #FFFFFF;
+    border: 2px solid #808080;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+}
+
+.status-row, .network-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 13px;
+}
+
+.label {
+    color: #808080;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+.value {
+    font-weight: bold;
+}
+
+.hint {
+    font-size: 11px;
+    color: #808080;
+    margin-top: 8px;
+}
+
+/* ============================================================
+   按钮
+   ============================================================ */
+
+.btn {
+    display: inline-block;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 13px;
+    background: #C0C0C0;
+    color: #404040;
+    border: 2px solid #808080;
+    padding: 8px 16px;
+    cursor: pointer;
+    text-transform: uppercase;
+    text-decoration: none;
+    letter-spacing: 1px;
+    transition: background 0.1s;
+}
+
+.btn:hover {
+    background: #D0D0D0;
+}
+
+.btn:active {
+    background: #808080;
+    color: #FFFFFF;
+}
+
+.btn:disabled {
+    background: #E0E0E0;
+    color: #C0C0C0;
+    border-color: #C0C0C0;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: #808080;
+    color: #FFFFFF;
+}
+
+.btn-primary:hover {
+    background: #707070;
+}
+
+.btn-large {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.btn-sm {
+    font-size: 11px;
+    padding: 4px 10px;
+}
+
+/* ============================================================
+   导航菜单
+   ============================================================ */
+
+.menu {
+    margin-bottom: 12px;
+}
+
+/* ============================================================
+   表单
+   ============================================================ */
+
+.form-group {
+    margin-bottom: 10px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 11px;
+    color: #808080;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+.input {
+    width: 100%;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 14px;
+    background: #FFFFFF;
+    color: #404040;
+    border: 2px solid #808080;
+    padding: 8px 10px;
+    outline: none;
+}
+
+.input:focus {
+    border-color: #404040;
+    background: #F8F8F8;
+}
+
+.input-number {
+    font-size: 28px;
+    text-align: center;
+    letter-spacing: 4px;
+}
+
+/* ============================================================
+   WiFi 网络列表
+   ============================================================ */
+
+.network-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 2px solid #C0C0C0;
+    margin-top: 8px;
+}
+
+.network-row {
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 12px;
+    border-bottom: 1px solid #E0E0E0;
+}
+
+.network-row:hover {
+    background: #E0E0E0;
+}
+
+.network-row.selected {
+    background: #808080;
+    color: #FFFFFF;
+}
+
+.rssi {
+    font-size: 10px;
+    color: #808080;
+}
+
+/* ============================================================
+   数码管预览
+   ============================================================ */
+
+.display-preview {
+    background: #404040;
+    color: #FFFFFF;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 14px;
+    line-height: 1.3;
+    padding: 12px;
+    margin: 8px 0;
+    text-align: center;
+    border: 2px solid #808080;
+}
+
+/* ============================================================
+   页脚
+   ============================================================ */
+
+footer {
+    text-align: center;
+    padding: 12px;
+    font-size: 10px;
+    color: #C0C0C0;
+}
+
+/* ============================================================
+   响应式（小屏手机）
+   ============================================================ */
+
+/* ============================================================
+   配置面板
+   ============================================================ */
+
+.config-panel {
+    background: #FFFFFF;
+    border: 2px solid #808080;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+}
+
+.config-panel h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #808080;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #C0C0C0;
+}
+
+.config-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 13px;
+}
+
+.config-row input[type="range"] {
+    flex: 1;
+    max-width: 180px;
+    accent-color: #808080;
+}
+
+.config-row select {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 12px;
+    background: #FFFFFF;
+    color: #404040;
+    border: 2px solid #808080;
+    padding: 2px 4px;
+}
+
+/* ============================================================
+   动画展示页
+   ============================================================ */
+
+.anim-grid {
+    margin-bottom: 12px;
+}
+
+.anim-grid .btn-large {
+    margin-bottom: 6px;
+    font-size: 15px;
+    letter-spacing: 2px;
+}
+
+.btn-anim {
+    background: #FFFFFF;
+    border-color: #808080;
+}
+
+.btn-anim:hover {
+    background: #D0D0D0;
+}
+
+.btn-anim:active {
+    background: #808080;
+    color: #FFFFFF;
+}
+
+.config-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #808080;
+}
+
+.night-times {
+    margin-top: 4px;
+    padding-left: 16px;
+}
+
+/* ============================================================
+   响应式（小屏手机）
+   ============================================================ */
+
+@media (max-width: 360px) {
+    body {
+        padding: 8px;
+    }
+    header h1 {
+        font-size: 16px;
+    }
+    .btn-large {
+        font-size: 14px;
+        padding: 12px;
+    }
+}

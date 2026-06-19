@@ -1,0 +1,12 @@
+.pio/
+.pioenvs/
+.piolibdeps/
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

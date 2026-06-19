@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLOCK - 数码管时钟</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <pre class="logo">
+  ____ _     ___   ____  _  __
+ / ___| |   / _ \ / ___|| |/ /
+| |   | |  | | | | |    | ' /
+| |___| |__| |_| | |___ | . \
+ \____|_____\___/ \____||_|\_\
+            </pre>
+            <h1>数码管时钟</h1>
+            <p class="subtitle">ESP32 4-DIGIT CLOCK v2.0</p>
+        </header>
+
+        <nav class="menu">
+            <a href="wifi.html"       class="btn btn-large">[  WiFi 配网    ]</a>
+            <a href="touch.html"      class="btn btn-large">[  触摸校准    ]</a>
+            <a href="animations.html" class="btn btn-large">[  内置动画    ]</a>
+            <a href="patterns.html"  class="btn btn-large">[  图案编辑    ]</a>
+            <a href="animator.html"  class="btn btn-large">[  动画编辑    ]</a>
+            <a href="remote.html"   class="btn btn-large">[  远程控制    ]</a>
+            <a href="fs.html"       class="btn btn-large">[  文件管理    ]</a>
+        </nav>
+
+        <div class="status-panel">
+            <div class="status-row">
+                <span class="label">WiFi 状态:</span>
+                <span id="wifiState" class="value">--</span>
+            </div>
+            <div class="status-row">
+                <span class="label">IP 地址:</span>
+                <span id="ip" class="value">--</span>
+            </div>
+            <div class="status-row">
+                <span class="label">已保存WiFi:</span>
+                <span id="savedSSID" class="value">--</span>
+            </div>
+            <div class="status-row">
+                <span class="label">显示模式:</span>
+                <span id="displayMode" class="value">--</span>
+            </div>
+        </div>
+
+        <div class="config-panel">
+            <h2>[ 设置 ]</h2>
+            <div class="config-row">
+                <span class="label">亮度:</span>
+                <input type="range" id="brightness" min="0" max="100" value="100" oninput="updateBrightness(this.value)">
+                <span id="brightnessVal" class="value">100%</span>
+            </div>
+            <div class="config-row">
+                <span class="label">夜间自动关屏:</span>
+                <input type="checkbox" id="nightEnabled" onchange="saveConfig()">
+            </div>
+            <div class="config-row night-times">
+                <span class="label">时段:</span>
+                <select id="nightStart" onchange="saveConfig()">
+                    <option value="20">20:00</option><option value="21">21:00</option>
+                    <option value="22">22:00</option><option value="23" selected>23:00</option>
+                    <option value="0">00:00</option>
+                </select>
+                <span> — </span>
+                <select id="nightEnd" onchange="saveConfig()">
+                    <option value="5">05:00</option><option value="6">06:00</option>
+                    <option value="7" selected>07:00</option><option value="8">08:00</option>
+                </select>
+            </div>
+        </div>
+
+        <footer>
+            <p>clock.local &copy; 2026</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        async function saveConfig() {
+            const body = {
+                brightness: parseInt(document.getElementById('brightness').value),
+                nightEnabled: document.getElementById('nightEnabled').checked,
+                nightStart: parseInt(document.getElementById('nightStart').value),
+                nightEnd: parseInt(document.getElementById('nightEnd').value),
+            };
+            await fetchJson('/api/config', 'POST', body);
+        }
+
+        function updateBrightness(val) {
+            document.getElementById('brightnessVal').textContent = val + '%';
+            saveConfig();
+        }
+
+        async function loadConfig() {
+            try {
+                const cfg = await fetchJson('/api/config');
+                document.getElementById('brightness').value = cfg.brightness;
+                document.getElementById('brightnessVal').textContent = cfg.brightness + '%';
+                document.getElementById('nightEnabled').checked = cfg.nightEnabled;
+                document.getElementById('nightStart').value = cfg.nightStart;
+                document.getElementById('nightEnd').value = cfg.nightEnd;
+            } catch (e) {}
+        }
+
+        // 每3秒轮询状态
+        setInterval(async () => {
+            try {
+                const data = await fetchJson('/api/status');
+                document.getElementById('wifiState').textContent = data.wifiState || '--';
+                document.getElementById('ip').textContent = data.ip || '--';
+                document.getElementById('savedSSID').textContent = data.savedSSID || '(未配置)';
+                document.getElementById('displayMode').textContent = data.displayMode || '--';
+            } catch (e) {
+                document.getElementById('wifiState').textContent = 'OFFLINE';
+            }
+        }, 3000);
+        // 首次立即加载
+        window.addEventListener('DOMContentLoaded', () => {
+            loadConfig();
+            fetchJson('/api/status').then(data => {
+                document.getElementById('wifiState').textContent = data.wifiState || '--';
+                document.getElementById('ip').textContent = data.ip || '--';
+                document.getElementById('savedSSID').textContent = data.savedSSID || '(未配置)';
+                document.getElementById('displayMode').textContent = data.displayMode || '--';
+            }).catch(() => {});
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLOCK - 图案编辑</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .tube-row { display: flex; gap: 12px; justify-content: center; margin: 16px 0 32px; overflow-x: auto; }
+        .tube { position: relative; width: 96px; height: 170px; flex-shrink: 0; }
+        .tube-label { position: absolute; bottom: -20px; left: 0; right: 0; text-align: center; font-size: 11px; color: #808080; }
+        .seg { position: absolute; background: #D0D0D0; cursor: pointer; transition: background 0.1s; border-radius: 3px; }
+        .seg.on { background: #CC2200; }
+        .seg:hover { opacity: 0.8; }
+        .seg-h { top: 10px; left: 24px; width: 48px; height: 9px; }
+        .seg-g { top: 23px; right: 9px; width: 9px; height: 42px; }
+        .seg-f { bottom: 42px; right: 9px; width: 9px; height: 42px; }
+        .seg-e { bottom: 10px; left: 24px; width: 48px; height: 9px; }
+        .seg-d { bottom: 42px; left: 9px; width: 9px; height: 42px; }
+        .seg-c { top: 23px; left: 9px; width: 9px; height: 42px; }
+        .seg-b { top: 72px; left: 24px; width: 48px; height: 9px; }
+        .seg-a { top: 72px; left: 76px; width: 12px; height: 9px; }
+
+        .hex-display { font-size: 11px; color: #808080; text-align: center; margin-top: 8px; font-family: monospace; }
+        .saved-list { margin-top: 12px; }
+        .saved-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid #E0E0E0; font-size: 13px; }
+        .saved-item .name { flex: 1; }
+        .saved-item .preview { font-family: monospace; font-size: 10px; color: #808080; margin: 0 8px; }
+        .btn-sm { font-size: 10px; padding: 2px 8px; margin-left: 4px; }
+        .editor-panel { background: #FFFFFF; border: 2px solid #808080; padding: 16px; margin-bottom: 12px; }
+        .editor-panel h2 { font-size: 14px; text-transform: uppercase; color: #808080; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #C0C0C0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <pre class="logo">
+  ____    _  _____ _   _ ____
+ |  _ \  / \|_   _| | | |  _ \
+ | |_) |/ _ \ | | | |_| | | | |
+ |  __// ___ \| | |  _  | |_| |
+ |_|  /_/   \_\_| |_| |_|____/
+            </pre>
+            <h1>图案编辑</h1>
+            <p class="subtitle">点击段点亮/熄灭 · 实物布局: h=上横 g=右上竖 f=右下竖 e=下横 d=左下竖 c=左上竖 b=中横 a=特殊横</p>
+        </header>
+
+        <div class="editor-panel">
+            <div class="tube-row" id="tubeRow"></div>
+            <div class="hex-display" id="hexDisplay">FF FF FF FF</div>
+            <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+                <input type="text" id="patternName" class="input" placeholder="图案名称" style="flex:1;min-width:120px;">
+                <button class="btn" onclick="savePattern()">[ 保存 ]</button>
+                <button class="btn" onclick="showPattern()">[ 显示 ]</button>
+                <button class="btn btn-primary" onclick="scanSegments()">[ 逐段测试 ]</button>
+            </div>
+            <div id="scanMsg" class="hint" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="editor-panel">
+            <h2>数字输入</h2>
+            <p class="hint" style="margin-bottom:8px;">输入 0~9999 直接显示在数码管上</p>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <input type="number" id="numInput" class="input" min="0" max="9999" value="1234"
+                       style="width:120px; font-size:22px; text-align:center; letter-spacing:2px;">
+                <button class="btn" onclick="sendNumber()">[ 发送 ]</button>
+                <button class="btn btn-sm" onclick="recoverTime()">[ 恢复时间 ]</button>
+            </div>
+            <div id="numStatus" class="hint"></div>
+        </div>
+
+        <div class="editor-panel">
+            <h2>已保存图案</h2>
+            <div id="savedList" class="saved-list"></div>
+        </div>
+
+        <footer>
+            <a href="index.html" class="btn btn-sm">[ 返回主页 ]</a>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        const SEG_BITS = {a:0, b:1, c:2, d:3, e:4, f:5, g:6, h:7};
+        let tubeData = [0xFF, 0xFF, 0xFF, 0xFF];
+        const segNames = ['a','b','c','d','e','f','g','h'];
+
+        function buildTube(idx) {
+            const tube = document.createElement('div');
+            tube.className = 'tube';
+            segNames.forEach(s => {
+                const div = document.createElement('div');
+                div.className = 'seg seg-' + s;
+                div.dataset.tube = idx;
+                div.dataset.seg = s;
+                div.addEventListener('click', () => toggleSeg(idx, s));
+                tube.appendChild(div);
+            });
+            const label = document.createElement('div');
+            label.className = 'tube-label';
+            label.textContent = 'Tube ' + idx;
+            tube.appendChild(label);
+            return tube;
+        }
+
+        function toggleSeg(tube, seg) {
+            const bit = SEG_BITS[seg];
+            tubeData[tube] ^= (1 << bit);
+            renderTubes();
+            updateHex();
+        }
+
+        function renderTubes() {
+            document.querySelectorAll('.tube').forEach((tube, idx) => {
+                const val = tubeData[idx];
+                tube.querySelectorAll('.seg').forEach(seg => {
+                    const bit = SEG_BITS[seg.dataset.seg];
+                    seg.classList.toggle('on', !(val & (1 << bit)));
+                });
+            });
+        }
+
+        function updateHex() {
+            const hex = tubeData.map(v => v.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+            document.getElementById('hexDisplay').textContent = hex;
+        }
+
+        function setData(data) {
+            tubeData = [...data];
+            renderTubes();
+            updateHex();
+        }
+
+        async function savePattern() {
+            const name = document.getElementById('patternName').value.trim();
+            if (!name) { alert('请输入图案名称'); return; }
+            try {
+                await fetchJson('/api/patterns', 'POST', { name, data: tubeData });
+                document.getElementById('patternName').value = '';
+                loadSaved();
+            } catch(e) { alert('保存失败: ' + e.message); }
+        }
+
+        async function showPattern() {
+            try {
+                await fetchJson('/api/display/pattern', 'POST', { data: tubeData });
+            } catch(e) { alert('显示失败: ' + e.message); }
+        }
+
+        async function deletePattern(id) {
+            try {
+                await fetchJson('/api/patterns', 'DELETE', { id });
+                loadSaved();
+            } catch(e) { alert('删除失败: ' + e.message); }
+        }
+
+        async function loadPattern(id) {
+            try {
+                const list = await fetchJson('/api/patterns');
+                const p = list.find(x => x.id === id);
+                if (p) setData(p.data);
+            } catch(e) {}
+        }
+
+        async function playPattern(id) {
+            try {
+                const list = await fetchJson('/api/patterns');
+                const p = list.find(x => x.id === id);
+                if (p) await fetchJson('/api/display/pattern', 'POST', { data: p.data });
+            } catch(e) {}
+        }
+
+        async function loadSaved() {
+            try {
+                const list = await fetchJson('/api/patterns');
+                const container = document.getElementById('savedList');
+                container.innerHTML = '';
+                if (!list || list.length === 0) {
+                    container.innerHTML = '<div class="saved-item" style="color:#C0C0C0;">暂无保存的图案</div>';
+                    return;
+                }
+                list.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'saved-item';
+                    const hex = p.data.map(v => v.toString(16).toUpperCase().padStart(2,'0')).join(' ');
+                    div.innerHTML = `
+                        <span class="name">${p.name}</span>
+                        <span class="preview">${hex}</span>
+                        <div>
+                            <button class="btn btn-sm" onclick="loadPattern(${p.id})">[ 编辑 ]</button>
+                            <button class="btn btn-sm" onclick="playPattern(${p.id})">[ 显示 ]</button>
+                            <button class="btn btn-sm" onclick="deletePattern(${p.id})">[ 删除 ]</button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            } catch(e) {}
+        }
+
+        async function sendNumber() {
+            const val = parseInt(document.getElementById('numInput').value);
+            const status = document.getElementById('numStatus');
+            if (isNaN(val) || val < 0 || val > 9999) {
+                status.textContent = '请输入 0~9999 之间的数字';
+                return;
+            }
+            status.textContent = '';
+            try {
+                const r = await fetchJson('/api/display/number', 'POST', { number: val });
+                if (r.success) status.textContent = '数码管显示: ' + val;
+                else status.textContent = '失败: ' + (r.error || '');
+            } catch(e) { status.textContent = '请求失败'; }
+        }
+
+        async function recoverTime() {
+            const status = document.getElementById('numStatus');
+            try {
+                const r = await fetchJson('/api/display/recover', 'POST');
+                if (r.success) status.textContent = '已恢复时间显示';
+            } catch(e) { status.textContent = '请求失败'; }
+        }
+
+        async function scanSegments() {
+            const msg = document.getElementById('scanMsg');
+            const names = ['a(bit0)', 'b(bit1)', 'c(bit2)', 'd(bit3)', 'e(bit4)', 'f(bit5)', 'g(bit6)', 'h(bit7)'];
+            for (let bit = 0; bit < 8; bit++) {
+                // 只点亮当前段，其他全灭
+                const data = [0xFF, 0xFF, 0xFF, 0xFF];
+                for (let t = 0; t < 4; t++) data[t] &= ~(1 << bit);
+                msg.textContent = '🔍 测试段 ' + names[bit];
+                setData(data);
+                try { await fetchJson('/api/display/pattern', 'POST', { data }); } catch(e) {}
+                await new Promise(r => setTimeout(r, 1200));
+            }
+            msg.textContent = '✅ 测试完成';
+            setData([0xFF, 0xFF, 0xFF, 0xFF]);
+        }
+
+        const tubeRow = document.getElementById('tubeRow');
+        for (let i = 0; i < 4; i++) tubeRow.appendChild(buildTube(i));
+        renderTubes();
+        loadSaved();
+    </script>
+</body>
+</html>
