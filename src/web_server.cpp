@@ -207,7 +207,11 @@ void web_server_init() {
     // WiFi 扫描
     server.on("/api/wifi/scan", HTTP_GET, [](AsyncWebServerRequest *request) {
         WiFi.scanDelete();
-        WiFi.scanNetworks(false);  // 同步扫描，确保返回完整结果
+        WiFi.scanNetworks(true);  // 异步扫描，避免阻塞 async_tcp 任务
+        unsigned long scanStart = millis();
+        while (WiFi.scanComplete() < 0 && millis() - scanStart < 10000) {
+            delay(100);  // 短延时让系统有机会处理其他任务
+        }
         String json = buildScanJson();
         request->send(200, "application/json", json);
     });
