@@ -73,7 +73,9 @@
 // ============================================================
 
 #define MDNS_HOSTNAME       "clock"         // mDNS 域名 clock.local
-#define NTP_SERVER          "pool.ntp.org"  // NTP 校时服务器
+#define NTP_SERVER          "pool.ntp.org"  // NTP 校时服务器（主）
+#define NTP_SERVER2         "time.google.com"   // NTP 备用服务器
+#define NTP_SERVER3         "ntp.aliyun.com"    // NTP 备用服务器（国内）
 #define NTP_INTERVAL_MS     21600000        // NTP 校时间隔(ms) = 6小时
 #define NTP_TIMEOUT_MS      10000           // NTP 同步超时(ms)
 #define GMT_OFFSET_SEC      (8 * 3600)      // 时区偏移(秒) UTC+8 北京时间

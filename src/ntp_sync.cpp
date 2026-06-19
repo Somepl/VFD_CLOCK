@@ -72,7 +72,7 @@ static bool write_ntp_to_rtc(const struct tm &timeinfo) {
 // ============================================================
 
 void ntp_init() {
-    configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
+    configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER, NTP_SERVER2, NTP_SERVER3);
 
     ntpConfigured = true;
     ntpState = NTP_IDLE;
@@ -91,8 +91,6 @@ void ntp_update() {
             // 触发同步
             ntpState = NTP_SYNCING;
             syncStartTime = millis();
-            // 重新配置 NTP 以发起同步请求
-            configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
             Serial.println(F("[NTP] 开始同步"));
         }
         break;

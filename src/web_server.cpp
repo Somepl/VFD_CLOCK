@@ -89,6 +89,8 @@ static String buildConfigJson() {
     doc["remotePassword"]   = remote_get_password();
     doc["remoteState"]      = remote_get_state_str();
 
+    doc["rtcTemp"]          = display_get_rtc_temp();
+
     String result;
     serializeJson(doc, result);
     return result;

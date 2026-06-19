@@ -329,6 +329,9 @@ void display_init() {
     // 检测 RTC
     if (rtc.begin()) {
         rtcReady = true;
+        if (rtc.lostPower()) {
+            Serial.println(F("[显示] 警告：RTC 电池掉电，时间可能不准确"));
+        }
         Serial.println(F("[显示] DS3231 RTC 已就绪"));
         // 打印当前时间，方便调试
         DateTime now = rtc.now();
