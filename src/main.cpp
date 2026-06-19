@@ -47,15 +47,8 @@ void on_button1_long_press() {
 
 // --- 按键2：天气 ---
 void on_button2_short_press() {
-    if (display_get_mode() == DISPLAY_WEATHER) {
-        // 已在天气显示模式，切换到下一个动画
-        Serial.println(F("[主控] 按键2短按：切换动画"));
-        display_cycle_weather_anim();
-    } else {
-        // 其他模式，重新获取天气
-        Serial.println(F("[主控] 按键2短按：获取天气"));
-        weather_fetch();
-    }
+    Serial.println(F("[主控] 按键2短按：获取天气"));
+    weather_fetch();
 }
 
 void on_button2_long_press() {

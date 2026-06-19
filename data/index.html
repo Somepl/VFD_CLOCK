@@ -81,7 +81,7 @@
             </div>
             <div class="row">
                 <span class="label">夜间</span>
-                <input type="checkbox" id="nightEnabled" onchange="saveConfig()">
+                <input type="checkbox" id="nightEnabled" onchange="saveConfig(); onNightToggle()">
                 <div class="sub-row">
                     <select id="nightStart" onchange="saveConfig()">
                         <option value="20">20:00</option><option value="21">21:00</option>
@@ -169,6 +169,12 @@
             nightEnd: parseInt(document.getElementById('nightEnd').value),
         };
         await fetchJson('/api/config', 'POST', body);
+    }
+
+    async function onNightToggle() {
+        if (!document.getElementById('nightEnabled').checked) {
+            await fetchJson('/api/display/recover', 'POST', {});
+        }
     }
 
     function updateBrightness(val) {
