@@ -236,7 +236,7 @@ void weather_update() {
 
         // 第二步：获取天气数据
         {
-            String path = "/v3/weather/now?key=";
+            String path = "/v3/weather/now.json?key=";
             path += WEATHER_API_KEY;
             path += "&location=";
             path += cachedCity;
