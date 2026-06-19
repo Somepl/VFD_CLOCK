@@ -117,6 +117,8 @@
 #define PREFS_KEY_TOUCH_HYST  "tch_hyst"    // 触摸滞后
 #define PREFS_KEY_REMOTE_URL  "rmt_url"     // 远程 Worker 地址
 #define PREFS_KEY_REMOTE_PWD  "rmt_pwd"     // 远程访问密码
+#define PREFS_KEY_BTN3_TYPE   "btn3_type"   // 按键3动画类型 (0=off, 1=builtin, 2=user)
+#define PREFS_KEY_BTN3_ID     "btn3_id"     // 按键3动画ID
 
 // ============================================================
 // 省电配置

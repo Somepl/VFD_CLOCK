@@ -45,9 +45,10 @@ void on_button2_long_press() {
     weather_toggle_unit();
 }
 
-// --- 按键3：AP 配网（长按） ---
+// --- 按键3：短按播放动画 / 长按 AP 配网 ---
 void on_button3_short_press() {
-    // 无功能
+    Serial.println(F("[主控] 按键3短按：播放配置动画"));
+    display_play_btn3_anim();
 }
 
 void on_button3_long_press() {

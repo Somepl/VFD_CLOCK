@@ -138,4 +138,21 @@ extern const char* BUILTIN_NAMES[10];
  */
 bool display_get_builtin_default_frames(uint8_t builtinIdx, JsonArray &frames);
 
+// ============================================================
+// 按键3动画配置
+// ============================================================
+
+#define BTN3_ANIM_OFF     0   // 无动作
+#define BTN3_ANIM_BUILTIN 1   // 内置动画 (0-5)
+#define BTN3_ANIM_USER    2   // 用户自定动画 (由 animations.json 中的 ID 标识)
+
+/** 设置按键3短按触发的动画 */
+void display_set_btn3_anim(uint8_t type, uint8_t id);
+/** 获取按键3动画类型 */
+uint8_t display_get_btn3_anim_type();
+/** 获取按键3动画ID */
+uint8_t display_get_btn3_anim_id();
+/** 播放按键3配置的动画 */
+void display_play_btn3_anim();
+
 #endif // DISPLAY_MANAGER_H

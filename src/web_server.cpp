@@ -85,6 +85,9 @@ static String buildConfigJson() {
 
     doc["touchHysteresis"]  = button_get_hysteresis();
 
+    doc["btn3AnimType"]     = display_get_btn3_anim_type();
+    doc["btn3AnimId"]       = display_get_btn3_anim_id();
+
     doc["remoteUrl"]        = remote_get_worker_url();
     doc["remotePassword"]   = remote_get_password();
     doc["remoteState"]      = remote_get_state_str();
@@ -133,6 +136,12 @@ static void handleConfigPost(AsyncWebServerRequest *request, uint8_t *data, size
     }
     if (doc.containsKey("touchHysteresis")) {
         button_set_hysteresis(doc["touchHysteresis"].as<uint16_t>());
+    }
+
+    if (doc.containsKey("btn3AnimType")) {
+        uint8_t type = constrain(doc["btn3AnimType"].as<uint8_t>(), 0, 2);
+        uint8_t id = doc.containsKey("btn3AnimId") ? doc["btn3AnimId"].as<uint8_t>() : display_get_btn3_anim_id();
+        display_set_btn3_anim(type, id);
     }
 
     if (doc.containsKey("remoteUrl")) {

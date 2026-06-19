@@ -85,12 +85,28 @@ DEMO/
 - **Web files must be re-flashed** via `pio run -t uploadfs` after any change to `data/`.
 - **API keys in config.h** — do not commit secrets. Keys are for 心知天气 (weather) and 高德 (IP geolocation) APIs.
 - **I2C pin fix**: SDA=22, SCL=21 (not the reverse — was a prior bug).
-- **Touch threshold** `TOUCH_THRESHOLD=40`: touch readings drop from ~80 to <20 on press.
+- **Touch threshold**: `TOUCH_PRESS_MARGIN=1` (acrylic overlay delta only 3-4 counts), `touchSetCycles(4000,2000)`, auto-calibrate on boot, IIR baseline tracking, noise spike rejection.
 - **AP SSID** `Clock-Setup` (open, no password), auto-closes after 3 min idle.
 - **mDNS hostname**: `clock` → accessible at `http://clock.local`.
-- **Weather animations**: 6 types mapped by keyword in weather text (晴/云/雨/雪/雷/其他).
+- **Weather animations**: 6 types mapped by keyword in weather text (晴/云/雨/雪/雷/其他). "阴" also maps to Cloudy. Unmatched weather skips animation, shows temperature directly.
+- **Temperature display**: tube1=± sign (blank for positive, 0xFD for negative), tube2-3=digits, tube4=°C symbol (0x39 = A+F+B+G).
 - **NTP interval**: 6 hours, UTC+8, server `pool.ntp.org`.
 - **Old code** in `YS18-3-for-yi-main(Old code)/` should not be modified — it's reference only.
+- **Builtin animation overrides** stored in Preferences NVS with keys `ov0`-`ov9` (JSON strings), not LittleFS.
+- **Button 3 animation config** stored in NVS: `btn3_type` (0=off, 1=builtin, 2=user) and `btn3_id` (animation index/ID).
+- **NVS keys**: `btn3_type`, `btn3_id` in `config.h:121-122`.
+
+## Button mapping
+
+| Button | Short press | Long press |
+|--------|-------------|------------|
+| btn1 (T0/GPIO4) | Toggle display on/off | (none) |
+| btn2 (T2/GPIO2) | Weather fetch | Toggle temp unit ℃/℉ |
+| btn3 (T15/GPIO15) | Play configured animation | Toggle AP hotspot |
+
+## ASCII art alignment
+
+All `<pre class="logo">` blocks across web pages (index.html line 43, creator.html line 80, patterns.html line 42, touch.html line 42) have trailing spaces on shorter lines to ensure right-edge alignment in monospace font. This prevents the "歪歪扭扭" appearance.
 
 ## Loop execution order (main.cpp)
 
@@ -98,12 +114,36 @@ Each `loop()` iteration runs: `ArduinoOTA.handle()` → `button_update()` → `w
 
 翻页动画已改为非阻塞状态机（`display_anim_tick()` 每圈推进一帧），不再使用 `delay()` 阻塞主循环。天气 HTTP 请求也改为 `WiFiClient` 非阻塞轮询，`connect()` 短暂阻塞后响应数据在 `weather_update()` 中分多次读取。
 
+按键3短按调用 `display_play_btn3_anim()`，根据 NVS 存储的 `btn3_type` 和 `btn3_id` 播放对应动画。内置动画直接用 `display_show_web_anim()`，用户动画从 `/animations.json` 读取后调用 `display_play_user_anim()`。
+
+WiFi 扫描使用 `WiFi.scanNetworks(true)` + `delay(100)` 轮询，避免同步扫描阻塞 `async_tcp` 任务导致看门狗重启。
+
 ## Web API (AsyncWebServer on port 80)
 
 | Method | Path                     | Purpose              |
 |--------|--------------------------|----------------------|
-| GET    | `/api/status`            | System status JSON   |
-| GET    | `/api/wifi/scan`         | Scan nearby networks |
+| GET    | `/api/status`            | System status JSON (wifiState, ip, staConnected, brightness, currentTime) |
+| GET    | `/api/config`            | Full config JSON (brightness, night, touch, remote, rtcTemp, btn3Anim*) |
+| POST   | `/api/config`            | Save config fields (brightness, nightEnabled/Start/End, touchThresholds, touchHysteresis, remoteUrl, remotePassword, btn3AnimType/Id) |
+| GET    | `/api/wifi/scan`         | Scan nearby networks (async, use polling with delay(100)) |
 | POST   | `/api/wifi/connect`      | Save & connect WiFi  |
+| GET    | `/api/wifi/saved`        | List saved WiFi credentials |
+| POST   | `/api/wifi/forget`       | Delete saved WiFi credentials |
 | POST   | `/api/display/number`    | Show number on tubes |
+| POST   | `/api/display/pattern`   | Show raw segment pattern |
+| POST   | `/api/display/animation` | Play built-in web animation (`type` 0-5) |
+| POST   | `/api/display/anim-play` | Play user animation (frame array) |
 | POST   | `/api/display/recover`   | Revert to time mode  |
+| GET    | `/api/patterns`          | List saved patterns |
+| POST   | `/api/patterns`          | Save pattern |
+| DELETE | `/api/patterns`          | Delete pattern |
+| GET    | `/api/animations`        | List saved user animations |
+| POST   | `/api/animations`        | Save user animation |
+| DELETE | `/api/animations`        | Delete user animation |
+| GET    | `/api/animations/builtin`| List 10 builtins with override status |
+| POST   | `/api/animations/builtin`| Save override for builtin animation |
+| DELETE | `/api/animations/builtin`| Restore builtin to default |
+| POST   | `/api/fs/upload`         | Upload file to LittleFS |
+| GET    | `/api/fs/list`           | List LittleFS files |
+| POST   | `/api/fs/delete`         | Delete file from LittleFS |
+| POST   | `/api/restart`           | Restart device |

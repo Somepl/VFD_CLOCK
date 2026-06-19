@@ -12,6 +12,7 @@
 #include <RTClib.h>
 #include <ShiftRegister74HC595.h>
 #include <Preferences.h>
+#include <LittleFS.h>
 #include "pattern_manager.h"
 
 // ============================================================
@@ -165,6 +166,10 @@ static uint8_t nightStart = NIGHT_START_DEFAULT;
 static uint8_t nightEnd = NIGHT_END_DEFAULT;
 static bool nightWake = false;
 static unsigned long nightWakeTime = 0;
+
+// 按键3动画配置
+static uint8_t btn3AnimType = BTN3_ANIM_OFF;
+static uint8_t btn3AnimId = 0;
 
 // 天气显示计时
 static unsigned long weatherStartTime = 0;
@@ -348,9 +353,11 @@ static void load_display_config() {
     nightEnabled = prefs.getBool(PREFS_KEY_NIGHT_EN, NIGHT_MODE_DEFAULT);
     nightStart = constrain(prefs.getUChar(PREFS_KEY_NIGHT_START, NIGHT_START_DEFAULT), 0, 23);
     nightEnd = constrain(prefs.getUChar(PREFS_KEY_NIGHT_END, NIGHT_END_DEFAULT), 0, 23);
+    btn3AnimType = constrain(prefs.getUChar(PREFS_KEY_BTN3_TYPE, BTN3_ANIM_OFF), 0, 2);
+    btn3AnimId = prefs.getUChar(PREFS_KEY_BTN3_ID, 0);
     prefs.end();
-    Serial.printf("[显示] 配置: 亮度=%d%%, 夜间模式=%d (%d:00-%d:00)\n",
-                  brightnessPct, nightEnabled, nightStart, nightEnd);
+    Serial.printf("[显示] 配置: 亮度=%d%%, 夜间模式=%d (%d:00-%d:00), 按键3动画=%d id=%d\n",
+                  brightnessPct, nightEnabled, nightStart, nightEnd, btn3AnimType, btn3AnimId);
 }
 
 static void save_display_config_brightness() {
@@ -366,6 +373,14 @@ static void save_display_config_night() {
     prefs.putBool(PREFS_KEY_NIGHT_EN, nightEnabled);
     prefs.putUChar(PREFS_KEY_NIGHT_START, nightStart);
     prefs.putUChar(PREFS_KEY_NIGHT_END, nightEnd);
+    prefs.end();
+}
+
+static void save_btn3_anim_config() {
+    Preferences prefs;
+    prefs.begin(PREFS_NAMESPACE, false);
+    prefs.putUChar(PREFS_KEY_BTN3_TYPE, btn3AnimType);
+    prefs.putUChar(PREFS_KEY_BTN3_ID, btn3AnimId);
     prefs.end();
 }
 
@@ -1043,5 +1058,72 @@ bool display_get_builtin_default_frames(uint8_t builtinIdx, JsonArray &frames) {
         return frames_to_json(frames, ANIM_DEFAULT, 4, 250);
     default:
         return false;
+    }
+}
+
+// ============================================================
+// 按键3动画
+// ============================================================
+
+void display_set_btn3_anim(uint8_t type, uint8_t id) {
+    btn3AnimType = constrain(type, 0, 2);
+    btn3AnimId = id;
+    save_btn3_anim_config();
+    Serial.printf("[显示] 按键3动画: type=%d id=%d\n", btn3AnimType, btn3AnimId);
+}
+
+uint8_t display_get_btn3_anim_type() {
+    return btn3AnimType;
+}
+
+uint8_t display_get_btn3_anim_id() {
+    return btn3AnimId;
+}
+
+void display_play_btn3_anim() {
+    if (btn3AnimType == BTN3_ANIM_OFF) {
+        Serial.println(F("[显示] 按键3动画: 未配置"));
+        return;
+    }
+
+    if (btn3AnimType == BTN3_ANIM_BUILTIN) {
+        if (btn3AnimId <= 5) {
+            Serial.printf("[显示] 按键3动画: 内置 %d\n", btn3AnimId);
+            display_show_web_anim(btn3AnimId);
+        } else {
+            Serial.println(F("[显示] 按键3动画: 内置ID无效"));
+        }
+        return;
+    }
+
+    if (btn3AnimType == BTN3_ANIM_USER) {
+        Serial.printf("[显示] 按键3动画: 用户 %d\n", btn3AnimId);
+        if (!LittleFS.begin(false)) {
+            Serial.println(F("[显示] LittleFS挂载失败"));
+            return;
+        }
+        File file = LittleFS.open("/animations.json", "r");
+        if (!file) {
+            Serial.println(F("[显示] 无 animations.json"));
+            return;
+        }
+        StaticJsonDocument<4096> doc;
+        DeserializationError err = deserializeJson(doc, file);
+        file.close();
+        if (err) {
+            Serial.println(F("[显示] animations.json 解析失败"));
+            return;
+        }
+        JsonArray list = doc.as<JsonArray>();
+        for (JsonVariant v : list) {
+            if (v["id"].as<uint8_t>() == btn3AnimId) {
+                JsonArray frames = v["frames"].as<JsonArray>();
+                if (frames.size() > 0) {
+                    display_play_user_anim(frames);
+                }
+                return;
+            }
+        }
+        Serial.printf("[显示] 按键3动画: 未找到用户动画 id=%d\n", btn3AnimId);
     }
 }

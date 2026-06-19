@@ -77,7 +77,7 @@
         <pre class="logo">
      ____    _    ____ ___  ____
     |    \  / \  / ___|_ _|/ ___|
-    | |_) // _ \| |    | || |
+    | |_) // _ \| |    | || |   
     |  _ </ ___ \ |___ | || |___
     |_| \_\/   \_\____|___|\____|
         </pre>
@@ -130,6 +130,28 @@
             <button class="btn" onclick="recoverTime()">[ 恢复时间 ]</button>
         </div>
         <div class="hint">在数码管上显示 4 位数字（0-9999），30 秒后自动恢复时间</div>
+    </div>
+
+    <!-- ===== 按键3动画配置 ===== -->
+    <div class="editor-panel">
+        <h2>[ 按键3动画 ]</h2>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <span style="font-size:12px;color:#808080;">短按按键3播放：</span>
+            <select id="btn3AnimSelect" style="flex:1;min-width:140px;font-family:monospace;font-size:11px;border:2px solid #808080;padding:4px;">
+                <option value="off">— 无动作 —</option>
+                <optgroup label="内置动画">
+                <option value="builtin:0">Sunshine</option>
+                <option value="builtin:1">Raining</option>
+                <option value="builtin:2">Love</option>
+                <option value="builtin:3">Smile</option>
+                <option value="builtin:4">Sad</option>
+                <option value="builtin:5">Nol</option>
+                </optgroup>
+                <optgroup label="我的动画" id="btn3UserOptgroup"></optgroup>
+            </select>
+            <button class="btn btn-primary" onclick="saveBtn3Anim()">[ 保存设置 ]</button>
+        </div>
+        <div class="hint" id="btn3AnimStatus" style="margin-top:6px;"></div>
     </div>
 
     <!-- ===== 内置动画 + 已保存 ===== -->
@@ -706,6 +728,79 @@ async function recoverTime() {
 }
 
 // ============================================================
+// 按键3动画配置
+// ============================================================
+async function loadBtn3Config() {
+    try {
+        const [cfg, anims] = await Promise.all([
+            fetchJson('/api/config'),
+            fetchJson('/api/animations')
+        ]);
+        const type = cfg.btn3AnimType !== undefined ? cfg.btn3AnimType : 0;
+        const id = cfg.btn3AnimId !== undefined ? cfg.btn3AnimId : 0;
+        const sel = document.getElementById('btn3AnimSelect');
+
+        // 填充用户动画
+        const optgroup = document.getElementById('btn3UserOptgroup');
+        optgroup.innerHTML = '';
+        (anims || []).forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = 'user:' + a.id;
+            opt.textContent = a.name + ' (' + a.frames.length + '帧)';
+            optgroup.appendChild(opt);
+        });
+
+        // 选中当前值
+        if (type === 0) {
+            sel.value = 'off';
+        } else if (type === 1) {
+            sel.value = 'builtin:' + id;
+        } else if (type === 2) {
+            if (sel.querySelector('option[value="user:' + id + '"]')) {
+                sel.value = 'user:' + id;
+            } else {
+                sel.value = 'off';
+            }
+        }
+        updateBtn3Status(type, id);
+    } catch(e) { console.error('加载按键3配置失败:', e); }
+}
+
+function updateBtn3Status(type, id) {
+    const status = document.getElementById('btn3AnimStatus');
+    const names = ['Sunshine','Raining','Love','Smile','Sad','Nol'];
+    if (type === 0) {
+        status.textContent = '当前: 按键3无动作';
+    } else if (type === 1) {
+        const name = (id < names.length) ? names[id] : ('#' + id);
+        status.textContent = '当前: 按键3播放「内置 - ' + name + '」';
+    } else if (type === 2) {
+        status.textContent = '当前: 按键3播放用户动画 #' + id;
+    }
+}
+
+async function saveBtn3Anim() {
+    const sel = document.getElementById('btn3AnimSelect');
+    const val = sel.value;
+    let type = 0, id = 0;
+    if (val === 'off') {
+        type = 0; id = 0;
+    } else if (val.startsWith('builtin:')) {
+        type = 1; id = parseInt(val.split(':')[1]);
+    } else if (val.startsWith('user:')) {
+        type = 2; id = parseInt(val.split(':')[1]);
+    }
+    try {
+        const result = await fetchJson('/api/config', 'POST', {
+            btn3AnimType: type,
+            btn3AnimId: id
+        });
+        updateBtn3Status(result.btn3AnimType, result.btn3AnimId);
+        alert('按键3动画已保存');
+    } catch(e) { alert('保存失败: ' + e.message); }
+}
+
+// ============================================================
 // 初始化
 // ============================================================
 const tubeRow = document.getElementById('tubeRow');
@@ -714,6 +809,7 @@ renderTubes();
 loadPatterns();
 loadAnimations();
 loadBuiltins();
+loadBtn3Config();
 </script>
 </body>
 </html>
