@@ -50,6 +50,12 @@ DEMO/
 | Touch btn 2    | T2/2 |
 | Touch btn 3    | T3/15|
 
+## Critical rules
+
+- **每次重大变更前必须自动 git 归档（commit）到当前版本**，经过用户确认后再动手改代码。
+- **所有修改必须先问用户确认方案**，不得直接执行。
+- **禁止使用 edit 工具修改带中文的文件** — edit 工具有 UTF-8 写入 bug，会破坏中文字符。改用 write 工具全量重写或用户自行编辑。
+
 ## Important quirks & constraints
 
 - **No test setup** — this is an embedded project; no unit tests exist.
