@@ -1,16 +1,13 @@
 /**
  * script.js — 共享前端工具函数
  *
- * 提供 AJAX 请求封装，所有页面共用
+ * 支持本地模式（直接调 ESP32）和远程模式（通过 Worker 代理）
+ * 远程模式配置：window._API_BASE = Worker URL, window._API_PWD = 密码
  */
 
-/**
- * 发起 JSON API 请求
- * @param {string} url    - API 路径（如 '/api/status'）
- * @param {string} method - HTTP 方法，默认 'GET'
- * @param {object} body   - 请求体对象（仅 POST），可选
- * @returns {Promise<object>} 解析后的 JSON 响应
- */
+const API_BASE = window._API_BASE || '';
+const API_PWD = window._API_PWD || '';
+
 async function fetchJson(url, method = 'GET', body = null) {
     const options = {
         method: method,
@@ -19,11 +16,15 @@ async function fetchJson(url, method = 'GET', body = null) {
         },
     };
 
-    if (body && method === 'POST') {
+    if (API_PWD) {
+        options.headers['X-Password'] = API_PWD;
+    }
+
+    if (body && (method === 'POST' || method === 'DELETE')) {
         options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(url, options);
+    const response = await fetch(API_BASE + url, options);
 
     if (!response.ok) {
         throw new Error('HTTP ' + response.status);

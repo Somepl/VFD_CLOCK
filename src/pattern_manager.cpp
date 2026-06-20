@@ -81,6 +81,14 @@ bool pm_set_builtin_override(uint8_t idx, JsonDocument &doc) {
     return ok;
 }
 
+bool pm_has_builtin_override(uint8_t idx) {
+    Preferences prefs;
+    prefs.begin(PM_BUILTIN_NS, true);
+    String val = prefs.getString(("ov" + String(idx)).c_str(), "");
+    prefs.end();
+    return val.length() > 0;
+}
+
 bool pm_delete_builtin_override(uint8_t idx) {
     Preferences prefs;
     prefs.begin(PM_BUILTIN_NS, false);

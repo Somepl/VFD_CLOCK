@@ -91,6 +91,7 @@ static String buildConfigJson() {
     doc["remoteUrl"]        = remote_get_worker_url();
     doc["remotePassword"]   = remote_get_password();
     doc["remoteState"]      = remote_get_state_str();
+    doc["workerUrl"]        = remote_get_http_url();
 
     doc["rtcTemp"]          = display_get_rtc_temp();
 
@@ -142,6 +143,10 @@ static void handleConfigPost(AsyncWebServerRequest *request, uint8_t *data, size
         uint8_t type = constrain(doc["btn3AnimType"].as<uint8_t>(), 0, 2);
         uint8_t id = doc.containsKey("btn3AnimId") ? doc["btn3AnimId"].as<uint8_t>() : display_get_btn3_anim_id();
         display_set_btn3_anim(type, id);
+    }
+
+    if (doc.containsKey("workerUrl")) {
+        remote_set_http_url(doc["workerUrl"].as<String>());
     }
 
     if (doc.containsKey("remoteUrl")) {

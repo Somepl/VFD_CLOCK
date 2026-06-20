@@ -18,8 +18,10 @@ RemoteState remote_get_state();
 String remote_get_state_str();
 String remote_get_worker_url();
 String remote_get_password();
+String remote_get_http_url();
 bool remote_is_enabled();
 void remote_set_config(const String& url, const String& password);
+void remote_set_http_url(const String& url);
 void remote_disable();
 
 #endif

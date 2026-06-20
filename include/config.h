@@ -119,6 +119,7 @@
 #define PREFS_KEY_REMOTE_PWD  "rmt_pwd"     // 远程访问密码
 #define PREFS_KEY_BTN3_TYPE   "btn3_type"   // 按键3动画类型 (0=off, 1=builtin, 2=user)
 #define PREFS_KEY_BTN3_ID     "btn3_id"     // 按键3动画ID
+#define PREFS_KEY_WORKER_URL  "worker_url"  // Worker HTTP URL (外网代理)
 
 // ============================================================
 // 省电配置
