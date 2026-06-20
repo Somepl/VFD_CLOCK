@@ -111,7 +111,7 @@
         </footer>
     </div>
 
-    <script>!function(){var p=new URLSearchParams(location.search);if(p.get('worker')){window._API_BASE=p.get('worker');window._API_PWD=p.get('pwd')||''}}</script>
+    <script>(function(){var p=new URLSearchParams(location.search);if(p.get('worker')){window._API_BASE=p.get('worker');window._API_PWD=p.get('pwd')||'';window._MQTT_BROKER=p.get('broker')||'wss://broker.emqx.io:8084/mqtt';var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js';document.head.appendChild(s);}})()</script>
     <script src="script.js"></script>
     <script>
     const SEGMENTS = [
