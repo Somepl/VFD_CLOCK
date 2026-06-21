@@ -214,6 +214,12 @@ static uint8_t animCycleIndex = 0;         // 动画循环索引(按键2切换)
 static int16_t lastAnimTemp = 0;           // 最近一次天气温度，循环动画时保持
 #define WEATHER_ANIM_DURATION  3000  // 动画播放时长(ms)
 
+// 闪烁通知模式（vibecoding 联动）
+static bool flashActive = false;
+static bool flashVisible = true;
+static unsigned long flashLastToggle = 0;
+#define FLASH_INTERVAL_MS 500
+
 // 天气动画覆写缓冲（从 Preferences 加载用户自定义帧）
 static bool wthrOvValid = false;
 #define WTHR_OV_MAX_FRAMES 30
@@ -766,6 +772,22 @@ void display_toggle_power() {
 }
 
 void display_anim_tick() {
+    // --- 闪烁通知模式（最高优先级，冻结一切其他显示操作）---
+    if (flashActive) {
+        unsigned long now = millis();
+        if (now - flashLastToggle >= FLASH_INTERVAL_MS) {
+            flashVisible = !flashVisible;
+            flashLastToggle = now;
+            if (flashVisible) {
+                sr.setAll(lastSegments);
+            } else {
+                uint8_t off[4] = {SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK};
+                sr.setAll(off);
+            }
+        }
+        return;
+    }
+
     // --- 翻页动画 ---
     if (animRunning && !animComplete && displayMode == DISPLAY_TIME) {
         unsigned long now = millis();
@@ -1059,6 +1081,31 @@ bool display_get_builtin_default_frames(uint8_t builtinIdx, JsonArray &frames) {
     default:
         return false;
     }
+}
+
+// ============================================================
+// 闪烁通知模式
+// ============================================================
+
+void display_start_flash() {
+    if (flashActive) return;
+    flashActive = true;
+    flashVisible = true;
+    flashLastToggle = millis();
+    Serial.println(F("[显示] 闪烁通知：开始"));
+    sr.setAll(lastSegments);
+}
+
+void display_stop_flash() {
+    if (!flashActive) return;
+    flashActive = false;
+    flashVisible = true;
+    Serial.println(F("[显示] 闪烁通知：停止，恢复时钟"));
+    display_set_mode(DISPLAY_TIME);
+}
+
+bool display_is_flash_active() {
+    return flashActive;
 }
 
 // ============================================================

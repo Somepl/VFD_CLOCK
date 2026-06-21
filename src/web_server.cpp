@@ -181,6 +181,8 @@ static String buildStatusJson() {
 
     doc["brightness"] = display_get_brightness();
 
+    doc["flashActive"] = display_is_flash_active();
+
     uint8_t hh, mm;
     display_get_hh_mm(hh, mm);
     char buf[6];
@@ -305,8 +307,22 @@ void web_server_init() {
 
     // 恢复时间显示
     server.on("/api/display/recover", HTTP_POST, [](AsyncWebServerRequest *request) {
+        display_stop_flash();
         Serial.println(F("[Web] 恢复时间显示"));
         display_set_mode(DISPLAY_TIME);
+        request->send(200, "application/json", "{\"success\":true}");
+    });
+
+    // 闪烁通知（vibecoding 联动）
+    server.on("/api/display/flash", HTTP_POST, [](AsyncWebServerRequest *request) {
+        Serial.println(F("[Web] 触发闪烁通知"));
+        display_start_flash();
+        request->send(200, "application/json", "{\"success\":true}");
+    });
+
+    server.on("/api/display/flash-stop", HTTP_POST, [](AsyncWebServerRequest *request) {
+        Serial.println(F("[Web] 停止闪烁"));
+        display_stop_flash();
         request->send(200, "application/json", "{\"success\":true}");
     });
 

@@ -155,4 +155,11 @@ uint8_t display_get_btn3_anim_id();
 /** 播放按键3配置的动画 */
 void display_play_btn3_anim();
 
+/** 启动闪烁通知模式（在当前显示内容上闪烁，500ms交替） */
+void display_start_flash();
+/** 停止闪烁，恢复时间显示 */
+void display_stop_flash();
+/** 查询是否正在闪烁 */
+bool display_is_flash_active();
+
 #endif // DISPLAY_MANAGER_H

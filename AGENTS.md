@@ -100,9 +100,21 @@ DEMO/
 
 | Button | Short press | Long press |
 |--------|-------------|------------|
-| btn1 (T0/GPIO4) | Toggle display on/off | (none) |
-| btn2 (T2/GPIO2) | Weather fetch | Toggle temp unit ℃/℉ |
-| btn3 (T15/GPIO15) | Play configured animation | Toggle AP hotspot |
+| btn1 (T0/GPIO4) | Toggle display on/off; if flashing → stop flash | (none) |
+| btn2 (T2/GPIO2) | Weather fetch; if flashing → stop flash | Toggle temp unit ℃/℉ |
+| btn3 (T15/GPIO15) | Play configured animation; if flashing → stop flash | Toggle AP hotspot |
+
+> 任意按键短按或长按都会先检查闪烁状态，如果正在闪烁则退出闪烁，不执行原本的功能。
+
+## Flash notification mode
+
+通过 HTTP API 或 MQTT 触发数码管闪烁（500ms 交替显示/全灭），用于通知用户需要查看/确认。
+
+- **触发**: `POST /api/display/flash` 或 MQTT `{"cmd":"flash_start"}`
+- **停止**: `POST /api/display/flash-stop`、MQTT `{"cmd":"flash_stop"}`、或任意物理按键
+- **闪烁覆盖层**：不改变当前显示模式，在 `display_anim_tick()` 最开头拦截，冻结所有动画 + PWM
+- **MQTT 主题**: `clock/{password}/cmd`，走公网 broker（当前 `broker.emqx.io:1883`），内外网均可访问
+- **本地调试脚本**: `flash.py start` / `flash.py stop`
 
 ## ASCII art alignment
 
@@ -114,6 +126,8 @@ Each `loop()` iteration runs: `ArduinoOTA.handle()` → `button_update()` → `w
 
 翻页动画已改为非阻塞状态机（`display_anim_tick()` 每圈推进一帧），不再使用 `delay()` 阻塞主循环。天气 HTTP 请求也改为 `WiFiClient` 非阻塞轮询，`connect()` 短暂阻塞后响应数据在 `weather_update()` 中分多次读取。
 
+闪烁通知模式下，`display_anim_tick()` 最开头拦截并处理闪烁切换，跳过所有动画帧推进和 PWM。
+
 按键3短按调用 `display_play_btn3_anim()`，根据 NVS 存储的 `btn3_type` 和 `btn3_id` 播放对应动画。内置动画直接用 `display_show_web_anim()`，用户动画从 `/animations.json` 读取后调用 `display_play_user_anim()`。
 
 WiFi 扫描使用 `WiFi.scanNetworks(true)` + `delay(100)` 轮询，避免同步扫描阻塞 `async_tcp` 任务导致看门狗重启。
@@ -122,7 +136,7 @@ WiFi 扫描使用 `WiFi.scanNetworks(true)` + `delay(100)` 轮询，避免同步
 
 | Method | Path                     | Purpose              |
 |--------|--------------------------|----------------------|
-| GET    | `/api/status`            | System status JSON (wifiState, ip, staConnected, brightness, currentTime) |
+| GET    | `/api/status`            | System status JSON (wifiState, ip, staConnected, brightness, currentTime, flashActive) |
 | GET    | `/api/config`            | Full config JSON (brightness, night, touch, remote, rtcTemp, btn3Anim*) |
 | POST   | `/api/config`            | Save config fields (brightness, nightEnabled/Start/End, touchThresholds, touchHysteresis, remoteUrl, remotePassword, btn3AnimType/Id) |
 | GET    | `/api/wifi/scan`         | Scan nearby networks (async, use polling with delay(100)) |
@@ -134,6 +148,8 @@ WiFi 扫描使用 `WiFi.scanNetworks(true)` + `delay(100)` 轮询，避免同步
 | POST   | `/api/display/animation` | Play built-in web animation (`type` 0-5) |
 | POST   | `/api/display/anim-play` | Play user animation (frame array) |
 | POST   | `/api/display/recover`   | Revert to time mode  |
+| POST   | `/api/display/flash`     | Start flash notification (500ms blink, freeze current content) |
+| POST   | `/api/display/flash-stop`| Stop flash, restore time display |
 | GET    | `/api/patterns`          | List saved patterns |
 | POST   | `/api/patterns`          | Save pattern |
 | DELETE | `/api/patterns`          | Delete pattern |

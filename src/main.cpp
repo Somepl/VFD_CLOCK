@@ -27,31 +27,36 @@ unsigned long lastDisplayUpdate = 0;
 
 // --- 按键1：屏幕开关 ---
 void on_button1_short_press() {
+    if (display_is_flash_active()) { display_stop_flash(); return; }
     display_toggle_power();
 }
 
 void on_button1_long_press() {
-    // 无功能
+    if (display_is_flash_active()) { display_stop_flash(); return; }
 }
 
 // --- 按键2：天气 ---
 void on_button2_short_press() {
+    if (display_is_flash_active()) { display_stop_flash(); return; }
     Serial.println(F("[主控] 按键2短按：获取天气"));
     weather_fetch();
 }
 
 void on_button2_long_press() {
+    if (display_is_flash_active()) { display_stop_flash(); return; }
     Serial.println(F("[主控] 按键2长按：切换温度单位"));
     weather_toggle_unit();
 }
 
 // --- 按键3：短按播放动画 / 长按 AP 配网 ---
 void on_button3_short_press() {
+    if (display_is_flash_active()) { display_stop_flash(); return; }
     Serial.println(F("[主控] 按键3短按：播放配置动画"));
     display_play_btn3_anim();
 }
 
 void on_button3_long_press() {
+    if (display_is_flash_active()) { display_stop_flash(); return; }
     Serial.println(F("[主控] 按键3长按：切换AP模式"));
     WiFiState state = wifi_get_state();
     if (state == WIFI_AP_ACTIVE || state == WIFI_AP_CONNECTED) {

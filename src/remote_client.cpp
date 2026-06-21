@@ -147,7 +147,11 @@ static void publishAnimations() {
 static void executeCommand(const String& cmd, JsonObject& data) {
     Serial.printf("[远程] 执行命令: %s\n", cmd.c_str());
 
-    if (cmd == "display_number") {
+    if (cmd == "flash_start") {
+        display_start_flash();
+    } else if (cmd == "flash_stop") {
+        display_stop_flash();
+    } else if (cmd == "display_number") {
         int num = data["number"] | -1;
         if (num >= 0 && num <= 9999) display_show_number((uint16_t)num);
     } else if (cmd == "recover_time") {
@@ -278,6 +282,8 @@ static void executeCommand(const String& cmd, JsonObject& data) {
 
 static String pathToCmd(const String& path) {
     if (path == "/api/display/number")         return "display_number";
+    if (path == "/api/display/flash")          return "flash_start";
+    if (path == "/api/display/flash-stop")     return "flash_stop";
     if (path == "/api/display/recover")        return "recover_time";
     if (path == "/api/display/animation")      return "play_animation";
     if (path == "/api/display/anim-play")      return "play_animation_frames";
