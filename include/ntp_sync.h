@@ -50,4 +50,19 @@ bool ntp_has_synced();
 /** 获取当前同步状态字符串（调试用） */
 const char* ntp_state_str();
 
+// ============================================================
+// 软件 RTC 回退（NTP 成功一次后可用，DS3231 失效时读取缓存时间）
+// ============================================================
+
+/** 软件 RTC 是否有有效缓存（即 NTP 至少成功过一次） */
+bool sw_rtc_is_valid();
+
+/**
+ * 从软件 RTC 缓存读取当前小时和分钟
+ * @param hour   输出小时
+ * @param minute 输出分钟
+ * @return true 成功，false 无缓存
+ */
+bool sw_rtc_get_hh_mm(uint8_t &hour, uint8_t &minute);
+
 #endif // NTP_SYNC_H

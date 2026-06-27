@@ -21,6 +21,11 @@ static unsigned long syncStartTime = 0;
 static unsigned long lastSyncTime = 0;
 static bool          syncedOnce = false;
 
+// — 软件 RTC 回退（DS3231 掉电时用 NTP 缓存的 Unix 时间 + millis() 推算当前时间）
+static time_t       swRtcUnix  = 0;
+static unsigned long swRtcBase = 0;
+static bool          swRtcValid = false;
+
 // NTP 已配置标志（configTime 只需调用一次）
 static bool ntpConfigured = false;
 
@@ -103,6 +108,11 @@ void ntp_update() {
         if (got && (dummy.tm_year + 1900 >= 2024)) {
             // 时间有效，写入 RTC（零阻塞，dummy 已在上面验证过）
             write_ntp_to_rtc(dummy);
+            // 同时缓存软件 RTC：用 mktime 将本地时间转为 Unix epoch
+            struct tm tmp = dummy;
+            swRtcUnix  = mktime(&tmp);
+            swRtcBase  = millis();
+            swRtcValid = true;
             ntpState = NTP_DONE;
             lastSyncTime = millis();
             syncedOnce = true;
@@ -136,6 +146,24 @@ unsigned long ntp_last_sync_time() {
 
 bool ntp_has_synced() {
     return syncedOnce;
+}
+
+// ============================================================
+// 软件 RTC 回退
+// ============================================================
+
+bool sw_rtc_is_valid() {
+    return swRtcValid;
+}
+
+bool sw_rtc_get_hh_mm(uint8_t &hour, uint8_t &minute) {
+    if (!swRtcValid) return false;
+    time_t now = swRtcUnix + (millis() - swRtcBase) / 1000;
+    struct tm *ti = localtime(&now);
+    if (!ti) return false;
+    hour = ti->tm_hour;
+    minute = ti->tm_min;
+    return true;
 }
 
 

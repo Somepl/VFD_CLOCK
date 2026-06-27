@@ -13,6 +13,9 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include "config.h"
+#include "display_driver.h"
+#include "display_config.h"
+#include "display_anim.h"
 
 // ============================================================
 // 显示模式枚举
@@ -141,10 +144,6 @@ bool display_get_builtin_default_frames(uint8_t builtinIdx, JsonArray &frames);
 // ============================================================
 // 按键3动画配置
 // ============================================================
-
-#define BTN3_ANIM_OFF     0   // 无动作
-#define BTN3_ANIM_BUILTIN 1   // 内置动画 (0-5)
-#define BTN3_ANIM_USER    2   // 用户自定动画 (由 animations.json 中的 ID 标识)
 
 /** 设置按键3短按触发的动画 */
 void display_set_btn3_anim(uint8_t type, uint8_t id);
