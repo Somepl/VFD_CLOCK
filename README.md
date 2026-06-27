@@ -44,50 +44,52 @@ pio run -t upload --upload-port <IP>   # OTA 更新固件
 DEMO/
 ├── platformio.ini          # 项目配置
 ├── partitions/             # 16MB 分区表
-├── include/                # 头文件
+├── include/                # 头文件（12 个）
 │   ├── config.h            # 引脚定义 & API 密钥
-│   ├── display_manager.h   # 数码管显示管理器
-│   ├── pattern_manager.h   # 图案/动画/覆写管理器
-│   └── web_server.h        # HTTP 服务器
-├── src/                    # 源代码（7 个模块）
-│   ├── main.cpp            # setup() + loop()
-│   ├── display_manager.cpp # 显示驱动 & 动画引擎
+│   ├── display_driver.h    # 74HC595 硬件层 + PWM
+│   ├── display_config.h    # NVS 配置持久化
+│   ├── display_anim.h      # 动画帧数据 + 状态机
+│   ├── display_manager.h   # 显示协调器
+│   ├── wifi_manager.h      # WiFi 配网 & 状态机
+│   ├── ntp_sync.h          # NTP 校时 & RTC 读写
+│   ├── weather_client.h    # 天气 API 客户端
+│   ├── button_handler.h    # 触摸按键处理
+│   ├── web_server.h        # HTTP 服务器
+│   ├── pattern_manager.h   # LittleFS 图案/动画存储
+│   └── remote_client.h     # MQTT + Worker 远程控制
+├── src/                    # 源代码（12 个模块）
+│   ├── main.cpp            # setup() + loop() 入口
+│   ├── display_driver.cpp  # 74HC595 硬件 + PWM ISR + 段码映射
+│   ├── display_config.cpp  # NVS 配置读写（亮度/夜间/按键3）
+│   ├── display_anim.cpp    # 动画帧数据 + 翻页/天气/覆写状态机
+│   ├── display_manager.cpp # 协调器：RTC、模式切换、时间/天气显示
 │   ├── wifi_manager.cpp    # WiFi 配网 & 状态机
-│   ├── ntp_sync.cpp        # NTP 校时 & RTC 读写
-│   ├── weather_client.cpp  # 天气 API 客户端
-│   ├── button_handler.cpp  # 触摸按键处理
-│   ├── web_server.cpp      # Web API & 静态文件
-│   ├── pattern_manager.cpp # LittleFS 图案/动画存储
-│   └── remote_client.cpp   # MQTT 远程控制
+│   ├── ntp_sync.cpp        # NTP 校时 + 软件 RTC 回退缓存
+│   ├── weather_client.cpp  # 天气 API 客户端（非阻塞 HTTP）
+│   ├── button_handler.cpp  # 电容触摸按键处理
+│   ├── web_server.cpp      # Web API & 静态文件服务
+│   ├── pattern_manager.cpp # LittleFS 图案/动画 CRUD
+│   └── remote_client.cpp   # MQTT + Worker HTTP 远程控制
 ├── data/                   # Web 界面文件（LittleFS）
 │   ├── index.html          # 主页（模拟时钟 + 状态面板）
 │   ├── creator.html        # 图案 & 动画编辑器
+│   ├── animator.html       # 动画播放器
+│   ├── animations.html     # 动画列表管理
+│   ├── patterns.html       # 图案列表管理
 │   ├── wifi.html           # WiFi 配网页面
+│   ├── touch.html          # 触摸校准页面
 │   ├── remote.html         # 远程控制页面
-│   └── fs.html             # 文件管理页面
+│   ├── fs.html             # 文件管理页面
+│   ├── style.css           # 全局样式
+│   └── script.js           # 公共脚本
 └── YS18-3-for-yi-main(Old code)/   # 旧版代码参考
 ```
 
+> **显示模块重构**：原 ~1200 行的 `display_manager.cpp` 已按职责拆分为 4 个独立模块（driver、config、anim、manager），每个模块包含对应的 `.h`/`.cpp` 文件。
+
 ## Web API
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/status` | System status (WiFi, time, mode, brightness) |
-| GET | `/api/config` | Get config (brightness, night mode) |
-| POST | `/api/config` | Save config |
-| GET | `/api/wifi/scan` | Scan WiFi networks |
-| POST | `/api/wifi/connect` | Connect to WiFi |
-| GET | `/api/animations/builtin` | List 10 built-in animations with frames |
-| POST | `/api/animations/builtin` | Save override for built-in animation |
-| DELETE | `/api/animations/builtin` | Remove override |
-| GET | `/api/patterns` | Saved patterns |
-| POST | `/api/patterns` | Save pattern |
-| POST | `/api/display/number` | Show 4-digit number |
-| POST | `/api/display/animation` | Play built-in animation |
-| POST | `/api/display/anim-play` | Play user animation frames |
-| POST | `/api/fs/upload` | Upload file to LittleFS |
-| GET | `/api/fs/list` | List uploaded files |
-| DELETE | `/api/fs/delete` | Delete uploaded file |
+完整 API 文档见 `AGENTS.md` → **Web API (AsyncWebServer on port 80)** 章节。
 
 ## PCB & Hardware
 

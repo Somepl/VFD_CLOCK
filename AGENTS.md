@@ -53,11 +53,24 @@ DEMO/
 ├── platformio.ini          # project config (single env: esp32dev)
 ├── partitions/             # 16MB flash partition CSV
 ├── include/                # headers (config.h has all pins & API keys)
-├── src/                    # 7 .cpp files, each a self-contained module
-│   └── main.cpp            # setup() + loop() entrypoint
+├── src/                    # 12 .cpp files, 4 display_* modules from refactor
+│   ├── main.cpp            # setup() + loop() entrypoint
+│   ├── display_driver.cpp  # 74HC595 hardware layer + PWM ISR + segment mapping
+│   ├── display_config.cpp  # NVS config persistence (brightness, night, btn3)
+│   ├── display_anim.cpp    # Animation frame data + state machines
+│   ├── display_manager.cpp # Coordinator: RTC, mode switching, time/weather display
+│   ├── wifi_manager.cpp    # WiFi provisioning + state machine
+│   ├── ntp_sync.cpp        # NTP sync + software RTC fallback cache
+│   ├── weather_client.cpp  # Weather API client (non-blocking HTTP)
+│   ├── button_handler.cpp  # Capacitive touch button processing
+│   ├── web_server.cpp      # HTTP API + static file server (704 lines, candidate for splitting)
+│   ├── pattern_manager.cpp # LittleFS pattern/animation CRUD
+│   └── remote_client.cpp   # MQTT + Worker HTTP remote control
 ├── data/                   # LittleFS web files (index.html, wifi.html, etc.)
 └── YS18-3-for-yi-main(Old code)/   # old codebase (reference only)
 ```
+
+> **Display Manager Refactor**: The original ~1200-line `display_manager.cpp` was split into 4 modules (driver, config, anim, coordinator) for maintainability. Each module has its own `.h`/`.cpp` pair.
 
 ## Key hardware pins (config.h)
 
@@ -82,15 +95,16 @@ DEMO/
 
 - **No test setup** — this is an embedded project; no unit tests exist.
 - **No lint/format/typecheck** config — none applicable.
-- **Web files must be re-flashed** via `pio run -t uploadfs` after any change to `data/`.
+- **Web files must be re-flashed** via web upload at `http://<IP>/fs.html` after any change to `data/`.
 - **API keys in config.h** — do not commit secrets. Keys are for 心知天气 (weather) and 高德 (IP geolocation) APIs.
 - **I2C pin fix**: SDA=22, SCL=21 (not the reverse — was a prior bug).
 - **Touch threshold**: `TOUCH_PRESS_MARGIN=1` (acrylic overlay delta only 3-4 counts), `touchSetCycles(4000,2000)`, auto-calibrate on boot, IIR baseline tracking, noise spike rejection.
 - **AP SSID** `Clock-Setup` (open, no password), auto-closes after 3 min idle.
 - **mDNS hostname**: `clock` → accessible at `http://clock.local`.
 - **Weather animations**: 6 types mapped by keyword in weather text (晴/云/雨/雪/雷/其他). "阴" also maps to Cloudy. Unmatched weather skips animation, shows temperature directly.
-- **Temperature display**: tube1=± sign (blank for positive, 0xFD for negative), tube2-3=digits, tube4=°C symbol (0x39 = A+F+B+G).
+- **Temperature display**: tube1=± sign (blank for positive, `char_to_segments('-')` for negative), tube2-3=digits, tube4=°C symbol (`char_to_segments(0xB0)`). Magic numbers `0x39`/`0xFD`/`B11111101` etc. have been unified into `char_to_segments()`.
 - **NTP interval**: 6 hours, UTC+8, server `pool.ntp.org`.
+- **Software RTC fallback**: NTP sync caches Unix time + millis() base point. If DS3231 fails, `sw_rtc_get_hh_mm()` computes time from the cache, preventing `----` display.
 - **Old code** in `YS18-3-for-yi-main(Old code)/` should not be modified — it's reference only.
 - **Builtin animation overrides** stored in Preferences NVS with keys `ov0`-`ov9` (JSON strings), not LittleFS.
 - **Button 3 animation config** stored in NVS: `btn3_type` (0=off, 1=builtin, 2=user) and `btn3_id` (animation index/ID).
