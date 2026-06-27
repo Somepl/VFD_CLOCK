@@ -14,6 +14,7 @@
 #include <Preferences.h>
 #include <LittleFS.h>
 #include "pattern_manager.h"
+#include <driver/gpio.h>
 
 // ============================================================
 // 硬件实例（全局单例）
@@ -149,15 +150,80 @@ static int animPos;
 static int animFrame;
 static unsigned long animLastStep;
 
-// 亮度 & PWM
+// 亮度
 static uint8_t brightnessPct = DISPLAY_BRIGHTNESS_DEFAULT;
-static unsigned long pwmLastToggle = 0;
-static bool pwmShowing = true;
 static uint8_t lastSegments[4] = {SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK};
 
+// PWM 硬件定时器 ISR（替代 FreeRTOS 任务）
+// 定时器 0，分频 80 → 1 tick = 1µs，自动重载（autoreload=true）
+// 每 50µs 触发一次 ISR → 20kHz，100 个 tick = 1 个 PWM 周期 (5ms = 200Hz)
+// 亮度 0~100 映射到由 tick 计数决定的占空比
+static volatile uint8_t pwmSegs[4] = {SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK};
+static volatile uint8_t pwmBrightness = DISPLAY_BRIGHTNESS_DEFAULT;
+static hw_timer_t *pwmTimer = NULL;
+
 static void segs_write(const uint8_t segs[4]) {
-    sr.setAll(segs);
+    // 写入共享缓冲区，ISR 负责按亮度驱动硬件
+    memcpy((void*)pwmSegs, segs, 4);
     memcpy(lastSegments, segs, 4);
+}
+
+// ============================================================
+// 74HC595 快速移位操作（ISR 安全，直接 GPIO 寄存器写入）
+// DATA→GPIO14(低32位), CLK→GPIO33(高32位), LATCH→GPIO32(高32位)
+// ============================================================
+
+static void IRAM_ATTR isr_shift_byte(uint8_t val) {
+    for (int i = 7; i >= 0; i--) {
+        gpio_set_level(GPIO_NUM_14, (val >> i) & 1);  // DATA
+        gpio_set_level(GPIO_NUM_33, 1);                // CLK ↑
+        gpio_set_level(GPIO_NUM_33, 0);                // CLK ↓
+    }
+}
+
+static void IRAM_ATTR isr_write_segments(const uint8_t segs[4]) {
+    // 顺序同 ShiftRegister74HC595<4>::updateRegisters(): 管4→管3→管2→管1(MSBFIRST)
+    isr_shift_byte(segs[3]);
+    isr_shift_byte(segs[2]);
+    isr_shift_byte(segs[1]);
+    isr_shift_byte(segs[0]);
+    gpio_set_level(GPIO_NUM_32, 1);  // LATCH ↑
+    gpio_set_level(GPIO_NUM_32, 0);  // LATCH ↓
+}
+
+// ============================================================
+// 硬件定时器 PWM（计数式，定时器自动重载 50µs → 20kHz）
+// 100 ticks = 1 PWM 周期 (5ms = 200Hz)
+//   tick 0: 输出段码（点亮）
+//   tick = brightness: 输出全灭（熄灭），brightness=100 时永不熄灭
+//   100 ticks 后重复
+// ============================================================
+
+static uint8_t pwm_tick = 0;
+
+static void IRAM_ATTR pwm_timer_isr(void) {
+    pwm_tick++;
+    if (pwm_tick >= 100) {
+        // 新周期：重置计数，点亮段码
+        pwm_tick = 0;
+        if (pwmBrightness > 0) {
+            // 原子读取 volatile 缓冲区到栈数组
+            uint8_t segs[4];
+            segs[0] = pwmSegs[0];
+            segs[1] = pwmSegs[1];
+            segs[2] = pwmSegs[2];
+            segs[3] = pwmSegs[3];
+            isr_write_segments(segs);
+        } else {
+            // 亮度 0：全灭
+            uint8_t blank[4] = {SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK};
+            isr_write_segments(blank);
+        }
+    } else if (pwm_tick == pwmBrightness) {
+        // 达到亮度阈值，熄灭段码（brightness=100 时永不触发）
+        uint8_t blank[4] = {SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK};
+        isr_write_segments(blank);
+    }
 }
 
 // 夜间自动关屏
@@ -405,13 +471,17 @@ static bool is_night_time(uint8_t currentHour) {
 }
 
 void display_force_off() {
+    // 缓冲区熄灭，不破坏 lastSegments（便于恢复）
     uint8_t off[4] = {SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK};
-    sr.setAll(off);
+    memcpy((void*)pwmSegs, off, 4);
 }
 
 void display_init() {
-    // 立即熄灭所有段，覆盖 74HC595 构造函数默认的全 LOW 状态
-    display_force_off();
+    // 硬件初始化：PWM 任务未启动，直接写 74HC595
+    {
+        uint8_t off[4] = {SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK};
+        sr.setAll(off);
+    }
     Serial.println(F("[显示] 初始化..."));
 
     // 初始化 I2C（DS3231）
@@ -444,6 +514,14 @@ void display_init() {
     }
 
     load_display_config();
+    pwmBrightness = brightnessPct;
+
+    // 启动硬件定时器 PWM（20kHz 自动重载 + tick 计数 → 200Hz PWM）
+    pwmTimer = timerBegin(0, 80, true);  // timer0, APB/80=1MHz→1µs/tick
+    timerAttachInterrupt(pwmTimer, pwm_timer_isr, true);
+    timerAlarmWrite(pwmTimer, 50, true);  // 50µs 自动重载 → 20kHz
+    timerAlarmEnable(pwmTimer);
+    Serial.println(F("[显示] 硬件定时器 PWM 已启动 (20kHz ISR, 100-tick→200Hz)"));
 
     Serial.println(F("[显示] 初始化完成"));
 }
@@ -779,10 +857,10 @@ void display_anim_tick() {
             flashVisible = !flashVisible;
             flashLastToggle = now;
             if (flashVisible) {
-                sr.setAll(lastSegments);
+                memcpy((void*)pwmSegs, lastSegments, 4);
             } else {
                 uint8_t off[4] = {SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK};
-                sr.setAll(off);
+                memcpy((void*)pwmSegs, off, 4);
             }
         }
         return;
@@ -916,39 +994,13 @@ void display_anim_tick() {
             userAnimFrameStart = now;
         }
         segs_write(userAnimBuffer[userAnimFrameIdx].data);
-        return;  // 动画期间跳过 PWM
-    }
-
-    // --- 亮度 PWM（仅在无任何动画时生效）---
-    bool anyAnimActive = animRunning ||
-                         (displayMode == DISPLAY_WEATHER && weatherAnimType != WEATHER_ANIM_NONE) ||
-                         (displayMode == DISPLAY_ANIMATION) ||
-                         (displayMode == DISPLAY_ANIM_PLAY);
-    if (!anyAnimActive && brightnessPct < 100 && displayMode != DISPLAY_OFF) {
-        unsigned long now = micros();
-        unsigned long elapsed = now - pwmLastToggle;
-        unsigned long period = 5000; // 200Hz
-        unsigned long onTime = ((unsigned long)brightnessPct * period) / 100;
-
-        if (pwmShowing && elapsed >= onTime) {
-            uint8_t off[4] = {SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK, SEGMENT_BLANK};
-            sr.setAll(off);
-            pwmShowing = false;
-            pwmLastToggle = now;
-        } else if (!pwmShowing && elapsed >= (period - onTime)) {
-            segs_write(lastSegments);
-            pwmShowing = true;
-            pwmLastToggle = now;
-        }
+        return;
     }
 }
 
 void display_set_brightness(uint8_t pct) {
     brightnessPct = constrain(pct, 0, 100);
-    if (brightnessPct >= 100) {
-        // Restore full brightness immediately
-        segs_write(lastSegments);
-    }
+    pwmBrightness = brightnessPct;
     save_display_config_brightness();
     Serial.printf("[显示] 亮度设为: %d%%\n", brightnessPct);
 }
@@ -1093,13 +1145,15 @@ void display_start_flash() {
     flashVisible = true;
     flashLastToggle = millis();
     Serial.println(F("[显示] 闪烁通知：开始"));
-    sr.setAll(lastSegments);
+    memcpy((void*)pwmSegs, lastSegments, 4);
 }
 
 void display_stop_flash() {
     if (!flashActive) return;
     flashActive = false;
     flashVisible = true;
+    // 立刻恢复上次显示的段码，不等 display_update() 的下一次轮询
+    memcpy((void*)pwmSegs, lastSegments, 4);
     Serial.println(F("[显示] 闪烁通知：停止，恢复时钟"));
     display_set_mode(DISPLAY_TIME);
 }
