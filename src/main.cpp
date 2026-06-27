@@ -22,6 +22,15 @@
 unsigned long lastDisplayUpdate = 0;
 
 // ============================================================
+// CPU 使用率统计
+// ============================================================
+
+static unsigned long lastLoopStart = 0;
+static unsigned long cpuBusyAccum = 0;
+static unsigned long cpuTotalAccum = 0;
+static unsigned long cpuPrintTimer = 0;
+
+// ============================================================
 // 按键回调函数
 // ============================================================
 
@@ -147,13 +156,18 @@ void setup() {
 // ============================================================
 
 void loop() {
+    unsigned long loopStart = micros();
     unsigned long now = millis();
+
+    // 累计总耗时（含两圈之间的空闲时间）
+    if (lastLoopStart != 0) {
+        cpuTotalAccum += loopStart - lastLoopStart;
+    }
+    lastLoopStart = loopStart;
 
     // --- OTA 无线烧录（每圈都跑，有WiFi连接时可用）---
     ArduinoOTA.handle();
 
-    // --- Telnet 远程日志 ---
-    
     // --- 按键检测（每圈都跑）---
     button_update();
 
@@ -176,6 +190,24 @@ void loop() {
     if (now - lastDisplayUpdate >= DISPLAY_REFRESH_MS) {
         lastDisplayUpdate = now;
         display_update();
+    }
+
+    // --- CPU 使用率统计与串口输出（每 5 秒）---
+    cpuBusyAccum += micros() - loopStart;
+
+    if (now - cpuPrintTimer >= 5000) {
+        cpuPrintTimer = now;
+
+        float totalUs = (float)cpuTotalAccum;
+        float busyUs = (float)cpuBusyAccum;
+        float cpuPct = (totalUs > 0) ? (busyUs / totalUs) * 100.0f : 0.0f;
+        unsigned long loopsPerSec = (totalUs > 0) ? (unsigned long)(5000000.0f / totalUs) : 0;
+
+        Serial.printf("[CPU] 占用: %.1f%%, 空闲: %.1f%%, loop频率: %luHz, CPU: %dMHz\n",
+                      cpuPct, 100.0f - cpuPct, loopsPerSec, getCpuFrequencyMhz());
+
+        cpuBusyAccum = 0;
+        cpuTotalAccum = 0;
     }
 }
 
