@@ -96,7 +96,7 @@ static String buildConfigJson() {
     doc["rtcTemp"]          = display_get_rtc_temp();
 
     // 固件版本标记（用于确认 OTA 是否生效）
-    doc["_fw"]              = "cleanup-v1";
+    doc["_fw"]              = "stability-v2";
 
     // API Key 状态（是否已配置，不暴露具体值）
     doc["hasWeatherApiKey"] = (strlen(weather_get_api_key()) > 0);
