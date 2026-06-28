@@ -96,7 +96,7 @@ DEMO/
 - **No test setup** — this is an embedded project; no unit tests exist.
 - **No lint/format/typecheck** config — none applicable.
 - **Web files must be re-flashed** via web upload at `http://<IP>/fs.html` after any change to `data/`.
-- **API keys in config.h** — do not commit secrets. Keys are for 心知天气 (weather) and 高德 (IP geolocation) APIs.
+- **API keys in config.h** — do not commit secrets. Keys are for 心知天气 (weather) and 高德 (IP geolocation) APIs. Configure via wifi.html 页面底部的「API Key 配置」面板，通过 NVS 存储，不暴露在编译期。
 - **I2C pin fix**: SDA=22, SCL=21 (not the reverse — was a prior bug).
 - **Touch threshold**: `TOUCH_PRESS_MARGIN=1` (acrylic overlay delta only 3-4 counts), `touchSetCycles(4000,2000)`, auto-calibrate on boot, IIR baseline tracking, noise spike rejection.
 - **AP SSID** `Clock-Setup` (open, no password), auto-closes after 3 min idle.
@@ -151,8 +151,8 @@ WiFi 扫描使用 `WiFi.scanNetworks(true)` + `delay(100)` 轮询，避免同步
 | Method | Path                     | Purpose              |
 |--------|--------------------------|----------------------|
 | GET    | `/api/status`            | System status JSON (wifiState, ip, staConnected, brightness, currentTime, flashActive) |
-| GET    | `/api/config`            | Full config JSON (brightness, night, touch, remote, rtcTemp, btn3Anim*) |
-| POST   | `/api/config`            | Save config fields (brightness, nightEnabled/Start/End, touchThresholds, touchHysteresis, remoteUrl, remotePassword, btn3AnimType/Id) |
+| GET    | `/api/config`            | Full config JSON (brightness, night, touch, remote, rtcTemp, btn3Anim*, hasWeatherApiKey, hasAmapApiKey, _fw) — remotePassword 返回 "✅ 已设置" 而非暴露明文 |
+| POST   | `/api/config`            | Save config fields (brightness, nightEnabled/Start/End, touchThresholds, touchHysteresis, remoteUrl, remotePassword, btn3AnimType/Id, weatherApiKey, amapApiKey) |
 | GET    | `/api/wifi/scan`         | Scan nearby networks (async, use polling with delay(100)) |
 | POST   | `/api/wifi/connect`      | Save & connect WiFi  |
 | GET    | `/api/wifi/saved`        | List saved WiFi credentials |

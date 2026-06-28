@@ -71,12 +71,12 @@ DEMO/
 │   ├── pattern_manager.cpp # LittleFS 图案/动画 CRUD
 │   └── remote_client.cpp   # MQTT + Worker HTTP 远程控制
 ├── data/                   # Web 界面文件（LittleFS）
-│   ├── index.html          # 主页（模拟时钟 + 状态面板）
+│   ├── index.html          # 主页（模拟时钟 + 状态面板 + 亮度控制）
 │   ├── creator.html        # 图案 & 动画编辑器
 │   ├── animator.html       # 动画播放器
 │   ├── animations.html     # 动画列表管理
 │   ├── patterns.html       # 图案列表管理
-│   ├── wifi.html           # WiFi 配网页面
+│   ├── wifi.html           # WiFi 配网 + API Key 配置
 │   ├── touch.html          # 触摸校准页面
 │   ├── remote.html         # 远程控制页面
 │   ├── fs.html             # 文件管理页面

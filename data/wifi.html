@@ -55,6 +55,20 @@
             <div class="status-row"><span class="label">IP:</span><span id="statusIp">--</span></div>
         </section>
 
+        <section class="panel">
+            <h2>API Key 配置</h2>
+            <div class="form-group">
+                <label>天气 Key: <span id="weatherKeyStatus" class="hint" style="display:inline;font-size:10px;"></span></label>
+                <input type="password" id="weatherApiKey" class="input" placeholder="心知天气 API Key">
+            </div>
+            <div class="form-group">
+                <label>地图 Key: <span id="amapKeyStatus" class="hint" style="display:inline;font-size:10px;"></span></label>
+                <input type="password" id="amapApiKey" class="input" placeholder="高德地图 API Key">
+            </div>
+            <button class="btn btn-primary" onclick="saveApiKeys()">[ 保存 API Key ]</button>
+            <p id="apiKeyStatus" class="hint"></p>
+        </section>
+
         <footer><a href="/" class="btn btn-sm">[ 返回首页 ]</a></footer>
     </div>
 
@@ -184,10 +198,38 @@
             btn.textContent = '[ 保存并连接 ]';
         }
 
+        async function saveApiKeys() {
+            const body = {};
+            const wKey = document.getElementById('weatherApiKey').value.trim();
+            const aKey = document.getElementById('amapApiKey').value.trim();
+            const status = document.getElementById('apiKeyStatus');
+            if (!wKey && !aKey) { status.textContent = '请至少输入一个 Key'; return; }
+            if (wKey) body.weatherApiKey = wKey;
+            if (aKey) body.amapApiKey = aKey;
+            try {
+                await fetchJson('/api/config', 'POST', body);
+                document.getElementById('weatherApiKey').value = '';
+                document.getElementById('amapApiKey').value = '';
+                status.textContent = '✅ 保存成功';
+                loadApiKeyStatus();
+            } catch (e) {
+                status.textContent = '❌ 保存失败';
+            }
+        }
+
+        async function loadApiKeyStatus() {
+            try {
+                const cfg = await fetchJson('/api/config');
+                document.getElementById('weatherKeyStatus').textContent = cfg.hasWeatherApiKey ? '✅ 已配置' : '❌ 未设置';
+                document.getElementById('amapKeyStatus').textContent = cfg.hasAmapApiKey ? '✅ 已配置' : '❌ 未设置';
+            } catch (e) {}
+        }
+
         setInterval(updateStatus, 5000);
         window.addEventListener('DOMContentLoaded', () => {
             updateStatus();
             loadSaved();
+            loadApiKeyStatus();
         });
     </script>
 </body>

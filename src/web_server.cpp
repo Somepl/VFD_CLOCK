@@ -90,10 +90,13 @@ static String buildConfigJson() {
     doc["btn3AnimId"]       = display_get_btn3_anim_id();
 
     doc["remoteUrl"]        = remote_get_worker_url();
-    doc["remotePassword"]   = remote_get_password();
+    doc["remotePassword"]   = (strlen(remote_get_password().c_str()) > 0) ? "✅ 已设置" : "";
     doc["remoteState"]      = remote_get_state_str();
 
     doc["rtcTemp"]          = display_get_rtc_temp();
+
+    // 固件版本标记（用于确认 OTA 是否生效）
+    doc["_fw"]              = "cleanup-v1";
 
     // API Key 状态（是否已配置，不暴露具体值）
     doc["hasWeatherApiKey"] = (strlen(weather_get_api_key()) > 0);
