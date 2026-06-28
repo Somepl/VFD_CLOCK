@@ -73,4 +73,10 @@ void weather_set_api_key(const String& key);
 /** 设置高德 API Key（保存到 NVS） */
 void weather_set_amap_key(const String& key);
 
+/** 获取当前天气 API Key（NVS 覆写后的运行时值） */
+const char* weather_get_api_key();
+
+/** 获取当前高德 API Key（NVS 覆写后的运行时值） */
+const char* weather_get_amap_key();
+
 #endif // WEATHER_CLIENT_H

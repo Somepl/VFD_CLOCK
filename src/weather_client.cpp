@@ -388,4 +388,12 @@ void weather_set_amap_key(const String& key) {
     Serial.printf("[天气] 高德 Key 已更新: %s\n", key.c_str());
 }
 
+const char* weather_get_api_key() {
+    return weatherApiKey.c_str();
+}
+
+const char* weather_get_amap_key() {
+    return amapApiKey.c_str();
+}
+
 

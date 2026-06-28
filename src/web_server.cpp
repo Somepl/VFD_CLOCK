@@ -96,8 +96,8 @@ static String buildConfigJson() {
     doc["rtcTemp"]          = display_get_rtc_temp();
 
     // API Key 状态（是否已配置，不暴露具体值）
-    doc["hasWeatherApiKey"] = (strlen(WEATHER_API_KEY) > 0);
-    doc["hasAmapApiKey"]    = (strlen(AMAP_API_KEY) > 0);
+    doc["hasWeatherApiKey"] = (strlen(weather_get_api_key()) > 0);
+    doc["hasAmapApiKey"]    = (strlen(weather_get_amap_key()) > 0);
 
     String result;
     serializeJson(doc, result);
