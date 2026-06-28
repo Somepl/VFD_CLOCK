@@ -1,10 +1,137 @@
 /*
- * style.css — 白灰像素复古风格
+ * style.css — 白灰像素复古风格（支持暗色主题）
  *
  * 色板: #FFF(白) #E0E0E0(浅灰) #C0C0C0(中灰) #808080(深灰) #404040(暗灰)
  * 字体: 系统等宽字体
  * 设计: 无圆角、实线边框、像素风格按钮
+ *
+ * 暗色主题：系统自动（prefers-color-scheme）或手动切换（.dark class）
  */
+
+/* ============================================================
+   CSS 自定义属性（亮色主题默认值）
+   ============================================================ */
+
+:root {
+    --bg-body: #E0E0E0;
+    --bg-panel: #FFFFFF;
+    --bg-input: #FFFFFF;
+    --bg-input-focus: #F8F8F8;
+    --bg-btn: #C0C0C0;
+    --bg-btn-hover: #D0D0D0;
+    --bg-btn-primary: #808080;
+    --bg-btn-primary-hover: #707070;
+    --bg-btn-anim: #FFFFFF;
+    --bg-display-preview: #404040;
+    --bg-network-row-hover: #E0E0E0;
+    --bg-network-row-selected: #808080;
+
+    --text-body: #404040;
+    --text-heading: #404040;
+    --text-muted: #808080;
+    --text-btn: #404040;
+    --text-btn-primary: #FFFFFF;
+    --text-btn-active: #FFFFFF;
+    --text-btn-disabled: #C0C0C0;
+    --text-display-preview: #FFFFFF;
+    --text-network-row-selected: #FFFFFF;
+
+    --border-panel: #808080;
+    --border-input: #808080;
+    --border-input-focus: #404040;
+    --border-btn: #808080;
+    --border-btn-disabled: #C0C0C0;
+    --border-subtle: #C0C0C0;
+    --border-list: #E0E0E0;
+
+    --footer-color: #C0C0C0;
+    --accent: #808080;
+    --heading-underline: #C0C0C0;
+    --network-list-border: #C0C0C0;
+}
+
+/* ============================================================
+   暗色主题（系统自动 + 手动）
+   ============================================================ */
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-body: #1a1a1a;
+        --bg-panel: #252525;
+        --bg-input: #1a1a1a;
+        --bg-input-focus: #222;
+        --bg-btn: #3a3a3a;
+        --bg-btn-hover: #4a4a4a;
+        --bg-btn-primary: #555;
+        --bg-btn-primary-hover: #666;
+        --bg-btn-anim: #252525;
+        --bg-display-preview: #0a0a0a;
+        --bg-network-row-hover: #333;
+        --bg-network-row-selected: #555;
+
+        --text-body: #d0d0d0;
+        --text-heading: #d0d0d0;
+        --text-muted: #888;
+        --text-btn: #d0d0d0;
+        --text-btn-primary: #fff;
+        --text-btn-active: #fff;
+        --text-btn-disabled: #555;
+        --text-display-preview: #d0d0d0;
+        --text-network-row-selected: #fff;
+
+        --border-panel: #555;
+        --border-input: #555;
+        --border-input-focus: #888;
+        --border-btn: #666;
+        --border-btn-disabled: #444;
+        --border-subtle: #444;
+        --border-list: #333;
+
+        --footer-color: #555;
+        --accent: #888;
+        --heading-underline: #444;
+        --network-list-border: #444;
+    }
+}
+
+/* 手动切换（JS 在 <html> 上加 .dark class） */
+:root.dark {
+    --bg-body: #1a1a1a;
+    --bg-panel: #252525;
+    --bg-input: #1a1a1a;
+    --bg-input-focus: #222;
+    --bg-btn: #3a3a3a;
+    --bg-btn-hover: #4a4a4a;
+    --bg-btn-primary: #555;
+    --bg-btn-primary-hover: #666;
+    --bg-btn-anim: #252525;
+    --bg-display-preview: #0a0a0a;
+    --bg-network-row-hover: #333;
+    --bg-network-row-selected: #555;
+
+    --text-body: #d0d0d0;
+    --text-heading: #d0d0d0;
+    --text-muted: #888;
+    --text-btn: #d0d0d0;
+    --text-btn-primary: #fff;
+    --text-btn-active: #fff;
+    --text-btn-disabled: #555;
+    --text-display-preview: #d0d0d0;
+    --text-network-row-selected: #fff;
+
+    --border-panel: #555;
+    --border-input: #555;
+    --border-input-focus: #888;
+    --border-btn: #666;
+    --border-btn-disabled: #444;
+    --border-subtle: #444;
+    --border-list: #333;
+
+    --footer-color: #555;
+    --accent: #888;
+    --heading-underline: #444;
+    --network-list-border: #444;
+}
 
 /* ============================================================
    基础重置
@@ -18,8 +145,8 @@
 
 body {
     font-family: "Courier New", Courier, monospace;
-    background-color: #E0E0E0;
-    color: #404040;
+    background-color: var(--bg-body);
+    color: var(--text-body);
     line-height: 1.6;
     min-height: 100vh;
     padding: 16px;
@@ -39,11 +166,12 @@ body {
    ============================================================ */
 
 header {
-    background: #FFFFFF;
-    border: 2px solid #808080;
+    background: var(--bg-panel);
+    border: 2px solid var(--border-panel);
     padding: 16px;
     margin-bottom: 12px;
     text-align: center;
+    position: relative;
 }
 
 header h1 {
@@ -51,21 +179,55 @@ header h1 {
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 2px;
-    color: #404040;
+    color: var(--text-heading);
 }
 
 .logo {
     font-size: 10px;
     line-height: 1.2;
-    color: #808080;
+    color: var(--text-muted);
     margin-bottom: 8px;
     text-align: center;
 }
 
 .subtitle {
     font-size: 11px;
-    color: #808080;
+    color: var(--text-muted);
     margin-top: 4px;
+}
+
+/* ============================================================
+   主题切换按钮
+   ============================================================ */
+
+.theme-toggle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 16px;
+    background: var(--bg-btn);
+    color: var(--text-btn);
+    border: 2px solid var(--border-btn);
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s;
+    z-index: 10;
+}
+
+.theme-toggle:hover {
+    background: var(--bg-btn-hover);
+}
+
+.theme-toggle:active {
+    background: var(--accent);
+    color: var(--text-btn-active);
 }
 
 /* ============================================================
@@ -73,8 +235,8 @@ header h1 {
    ============================================================ */
 
 .panel {
-    background: #FFFFFF;
-    border: 2px solid #808080;
+    background: var(--bg-panel);
+    border: 2px solid var(--border-panel);
     padding: 16px;
     margin-bottom: 12px;
 }
@@ -83,15 +245,15 @@ header h1 {
     font-size: 14px;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: #808080;
+    color: var(--text-muted);
     margin-bottom: 12px;
     padding-bottom: 8px;
-    border-bottom: 2px solid #C0C0C0;
+    border-bottom: 2px solid var(--heading-underline);
 }
 
 .status-panel {
-    background: #FFFFFF;
-    border: 2px solid #808080;
+    background: var(--bg-panel);
+    border: 2px solid var(--border-panel);
     padding: 12px 16px;
     margin-bottom: 12px;
 }
@@ -105,7 +267,7 @@ header h1 {
 }
 
 .label {
-    color: #808080;
+    color: var(--text-muted);
     text-transform: uppercase;
     font-size: 11px;
     letter-spacing: 1px;
@@ -117,7 +279,7 @@ header h1 {
 
 .hint {
     font-size: 11px;
-    color: #808080;
+    color: var(--text-muted);
     margin-top: 8px;
 }
 
@@ -129,9 +291,9 @@ header h1 {
     display: inline-block;
     font-family: "Courier New", Courier, monospace;
     font-size: 13px;
-    background: #C0C0C0;
-    color: #404040;
-    border: 2px solid #808080;
+    background: var(--bg-btn);
+    color: var(--text-btn);
+    border: 2px solid var(--border-btn);
     padding: 8px 16px;
     cursor: pointer;
     text-transform: uppercase;
@@ -141,28 +303,28 @@ header h1 {
 }
 
 .btn:hover {
-    background: #D0D0D0;
+    background: var(--bg-btn-hover);
 }
 
 .btn:active {
-    background: #808080;
-    color: #FFFFFF;
+    background: var(--accent);
+    color: var(--text-btn-active);
 }
 
 .btn:disabled {
-    background: #E0E0E0;
-    color: #C0C0C0;
-    border-color: #C0C0C0;
+    background: var(--bg-body);
+    color: var(--text-btn-disabled);
+    border-color: var(--border-btn-disabled);
     cursor: not-allowed;
 }
 
 .btn-primary {
-    background: #808080;
-    color: #FFFFFF;
+    background: var(--bg-btn-primary);
+    color: var(--text-btn-primary);
 }
 
 .btn-primary:hover {
-    background: #707070;
+    background: var(--bg-btn-primary-hover);
 }
 
 .btn-large {
@@ -198,7 +360,7 @@ header h1 {
 .form-group label {
     display: block;
     font-size: 11px;
-    color: #808080;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-bottom: 4px;
@@ -208,16 +370,16 @@ header h1 {
     width: 100%;
     font-family: "Courier New", Courier, monospace;
     font-size: 14px;
-    background: #FFFFFF;
-    color: #404040;
-    border: 2px solid #808080;
+    background: var(--bg-input);
+    color: var(--text-body);
+    border: 2px solid var(--border-input);
     padding: 8px 10px;
     outline: none;
 }
 
 .input:focus {
-    border-color: #404040;
-    background: #F8F8F8;
+    border-color: var(--border-input-focus);
+    background: var(--bg-input-focus);
 }
 
 .input-number {
@@ -233,7 +395,7 @@ header h1 {
 .network-list {
     max-height: 200px;
     overflow-y: auto;
-    border: 2px solid #C0C0C0;
+    border: 2px solid var(--network-list-border);
     margin-top: 8px;
 }
 
@@ -241,21 +403,21 @@ header h1 {
     padding: 6px 10px;
     cursor: pointer;
     font-size: 12px;
-    border-bottom: 1px solid #E0E0E0;
+    border-bottom: 1px solid var(--border-list);
 }
 
 .network-row:hover {
-    background: #E0E0E0;
+    background: var(--bg-network-row-hover);
 }
 
 .network-row.selected {
-    background: #808080;
-    color: #FFFFFF;
+    background: var(--bg-network-row-selected);
+    color: var(--text-network-row-selected);
 }
 
 .rssi {
     font-size: 10px;
-    color: #808080;
+    color: var(--text-muted);
 }
 
 /* ============================================================
@@ -263,15 +425,15 @@ header h1 {
    ============================================================ */
 
 .display-preview {
-    background: #404040;
-    color: #FFFFFF;
+    background: var(--bg-display-preview);
+    color: var(--text-display-preview);
     font-family: "Courier New", Courier, monospace;
     font-size: 14px;
     line-height: 1.3;
     padding: 12px;
     margin: 8px 0;
     text-align: center;
-    border: 2px solid #808080;
+    border: 2px solid var(--border-panel);
 }
 
 /* ============================================================
@@ -282,20 +444,16 @@ footer {
     text-align: center;
     padding: 12px;
     font-size: 10px;
-    color: #C0C0C0;
+    color: var(--footer-color);
 }
-
-/* ============================================================
-   响应式（小屏手机）
-   ============================================================ */
 
 /* ============================================================
    配置面板
    ============================================================ */
 
 .config-panel {
-    background: #FFFFFF;
-    border: 2px solid #808080;
+    background: var(--bg-panel);
+    border: 2px solid var(--border-panel);
     padding: 12px 16px;
     margin-bottom: 12px;
 }
@@ -304,10 +462,10 @@ footer {
     font-size: 14px;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: #808080;
+    color: var(--text-muted);
     margin-bottom: 12px;
     padding-bottom: 8px;
-    border-bottom: 2px solid #C0C0C0;
+    border-bottom: 2px solid var(--heading-underline);
 }
 
 .config-row {
@@ -321,15 +479,15 @@ footer {
 .config-row input[type="range"] {
     flex: 1;
     max-width: 180px;
-    accent-color: #808080;
+    accent-color: var(--accent);
 }
 
 .config-row select {
     font-family: "Courier New", Courier, monospace;
     font-size: 12px;
-    background: #FFFFFF;
-    color: #404040;
-    border: 2px solid #808080;
+    background: var(--bg-input);
+    color: var(--text-body);
+    border: 2px solid var(--border-input);
     padding: 2px 4px;
 }
 
@@ -348,23 +506,23 @@ footer {
 }
 
 .btn-anim {
-    background: #FFFFFF;
-    border-color: #808080;
+    background: var(--bg-btn-anim);
+    border-color: var(--border-panel);
 }
 
 .btn-anim:hover {
-    background: #D0D0D0;
+    background: var(--bg-btn-hover);
 }
 
 .btn-anim:active {
-    background: #808080;
-    color: #FFFFFF;
+    background: var(--accent);
+    color: var(--text-btn-active);
 }
 
 .config-row input[type="checkbox"] {
     width: 18px;
     height: 18px;
-    accent-color: #808080;
+    accent-color: var(--accent);
 }
 
 .night-times {

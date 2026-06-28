@@ -144,6 +144,39 @@ async function fetchJson(url, method = 'GET', body = null) {
     return httpFetch(url, method, body);
 }
 
+// ===== 主题切换 =====
+
+function initTheme() {
+    const saved = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    if (saved === 'dark' || (!saved && prefersDark)) {
+        document.documentElement.classList.add('dark');
+    }
+
+    const btn = document.createElement('button');
+    btn.className = 'theme-toggle';
+    btn.setAttribute('aria-label', '切换主题');
+    btn.textContent = document.documentElement.classList.contains('dark') ? '☀' : '☾';
+    btn.onclick = () => {
+        document.documentElement.classList.toggle('dark');
+        const isDark = document.documentElement.classList.contains('dark');
+        btn.textContent = isDark ? '☀' : '☾';
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    };
+
+    const header = document.querySelector('header');
+    if (header) {
+        header.appendChild(btn);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTheme);
+} else {
+    initTheme();
+}
+
 // 自动初始化（仅在远程模式下）
 if (API_BASE && typeof mqtt !== 'undefined') {
     setTimeout(mqttConnect, 500);
