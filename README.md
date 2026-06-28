@@ -2,8 +2,6 @@
 
 基于 PlatformIO + Arduino 的 ESP32 桌面时钟，4 位数码管显示，支持 WiFi 配网、NTP 校时、天气显示、电容触摸按键、OTA 远程升级、复古 Web 控制面板。
 
-![IMG_20240323_162852](https://github.com/Somepl/YS18-3-for-yi/assets/56122958/55d47e16-f70d-4323-a173-1d48dbec4436)
-
 ## Features
 
 - **4 位数码管** — 74HC595 驱动，8 段（A-H）独立控制，共阳极
