@@ -6,20 +6,20 @@
     <title>CLOCK - 动画编辑</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        .editor-panel { background: #FFFFFF; border: 2px solid #808080; padding: 16px; margin-bottom: 12px; }
-        .editor-panel h2 { font-size: 14px; text-transform: uppercase; color: #808080; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #C0C0C0; }
+        .editor-panel { background: var(--bg-panel); border: 2px solid var(--border-panel); padding: 16px; margin-bottom: 12px; }
+        .editor-panel h2 { font-size: 14px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--heading-underline); }
         .frame-list { margin: 8px 0; }
-        .frame-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px solid #E0E0E0; font-size: 13px; }
-        .frame-item .idx { color: #808080; font-size: 10px; width: 20px; }
-        .frame-item .hex { font-family: monospace; font-size: 10px; color: #808080; flex: 1; }
-        .frame-item input[type="number"] { width: 60px; font-family: monospace; font-size: 12px; border: 2px solid #808080; padding: 2px 4px; }
+        .frame-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--border-list); font-size: 13px; }
+        .frame-item .idx { color: var(--text-muted); font-size: 10px; width: 20px; }
+        .frame-item .hex { font-family: monospace; font-size: 10px; color: var(--text-muted); flex: 1; }
+        .frame-item input[type="number"] { width: 60px; font-family: monospace; font-size: 12px; border: 2px solid var(--border-input); padding: 2px 4px; background: var(--bg-input); color: var(--text-body); }
         .frame-item .btn-sm { font-size: 10px; padding: 2px 6px; }
         .add-frame-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
-        .add-frame-row select { flex: 1; font-family: monospace; font-size: 12px; border: 2px solid #808080; padding: 4px; }
-        .saved-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid #E0E0E0; font-size: 13px; }
+        .add-frame-row select { flex: 1; font-family: monospace; font-size: 12px; border: 2px solid var(--border-input); padding: 4px; background: var(--bg-input); color: var(--text-body); }
+        .saved-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid var(--border-list); font-size: 13px; }
         .saved-item .name { flex: 1; }
-        .saved-item .count { font-size: 10px; color: #808080; }
-        .hint { font-size: 11px; color: #808080; margin-top: 4px; }
+        .saved-item .count { font-size: 10px; color: var(--text-muted); }
+        .hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -39,12 +39,12 @@
         <div class="editor-panel">
             <h2>帧序列</h2>
             <div id="frameList" class="frame-list">
-                <div class="frame-item" style="color:#C0C0C0;">暂无帧，从下方添加</div>
+                <div class="frame-item" style="color:var(--text-btn-disabled);">暂无帧，从下方添加</div>
             </div>
             <div class="add-frame-row">
                 <select id="patternSelect"><option value="">-- 选择图案 --</option></select>
                 <input type="number" id="frameDuration" value="500" min="50" max="10000" style="width:70px;">
-                <span style="font-size:11px;color:#808080;">ms</span>
+                <span style="font-size:11px;color:var(--text-muted);">ms</span>
                 <button class="btn btn-sm" onclick="addFrame()">[ 添加 ]</button>
             </div>
             <div style="margin-top:12px; display:flex; gap:8px;">
@@ -108,7 +108,7 @@
         function renderFrames() {
             const container = document.getElementById('frameList');
             if (frames.length === 0) {
-                container.innerHTML = '<div class="frame-item" style="color:#C0C0C0;">暂无帧，从下方添加</div>';
+                container.innerHTML = '<div class="frame-item" style="color:var(--text-btn-disabled);">暂无帧，从下方添加</div>';
                 return;
             }
             container.innerHTML = '';
@@ -120,7 +120,7 @@
                     <span class="idx">#${i+1}</span>
                     <span class="hex">${hex}</span>
                     <input type="number" class="dur-input" value="${f.duration}" min="50" max="10000" data-idx="${i}">
-                    <span style="font-size:10px;color:#808080;">ms</span>
+                    <span style="font-size:10px;color:var(--text-muted);">ms</span>
                     <button class="btn btn-sm" onclick="moveFrame(${i},-1)">[ ▲ ]</button>
                     <button class="btn btn-sm" onclick="moveFrame(${i},1)">[ ▼ ]</button>
                     <button class="btn btn-sm" onclick="removeFrame(${i})">[ ✕ ]</button>
@@ -189,7 +189,7 @@
                 const container = document.getElementById('savedList');
                 container.innerHTML = '';
                 if (!list || list.length === 0) {
-                    container.innerHTML = '<div class="saved-item" style="color:#C0C0C0;">暂无保存的动画</div>';
+                    container.innerHTML = '<div class="saved-item" style="color:var(--text-btn-disabled);">暂无保存的动画</div>';
                     return;
                 }
                 list.forEach(a => {

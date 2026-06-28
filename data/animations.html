@@ -51,7 +51,7 @@
                     await fetchJson('/api/display/animation', 'POST', { type });
                     status.style.display = 'block';
                     msg.textContent = '✅ ' + btn.textContent.trim() + ' 已触发';
-                    msg.style.color = '#404040';
+                    msg.style.color = 'var(--text-body)';
                 } catch (e) {
                     status.style.display = 'block';
                     msg.textContent = '❌ 请求失败: ' + e.message;

@@ -8,7 +8,7 @@
     <style>
         .tube-row { display: flex; gap: 8px; justify-content: center; margin: 12px 0 28px; overflow-x: auto; }
         .tube { position: relative; width: 88px; height: 156px; flex-shrink: 0; }
-        .tube-label { position: absolute; bottom: -18px; left: 0; right: 0; text-align: center; font-size: 10px; color: #808080; }
+        .tube-label { position: absolute; bottom: -18px; left: 0; right: 0; text-align: center; font-size: 10px; color: var(--text-muted); }
         .seg { position: absolute; background: #D0D0D0; cursor: pointer; transition: background 0.08s; border-radius: 2px; }
         .seg.on { background: #CC2200; }
         .seg:hover { opacity: 0.7; }
@@ -21,53 +21,53 @@
         .seg-G { top: 66px; left: 22px; width: 44px; height: 8px; }
         .seg-H { top: 66px; left: 70px; width: 10px; height: 8px; }
 
-        .editor-panel { background: #FFF; border: 2px solid #808080; padding: 14px; margin-bottom: 10px; }
-        .editor-panel h2 { font-size: 13px; text-transform: uppercase; color: #808080; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #C0C0C0; }
-        .hex-display { font-size: 11px; color: #808080; text-align: center; font-family: monospace; word-break: break-all; }
+        .editor-panel { background: var(--bg-panel); border: 2px solid var(--border-panel); padding: 14px; margin-bottom: 10px; }
+        .editor-panel h2 { font-size: 13px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--heading-underline); }
+        .hex-display { font-size: 11px; color: var(--text-muted); text-align: center; font-family: monospace; word-break: break-all; }
 
         .frame-list { margin: 6px 0; max-height: 240px; overflow-y: auto; }
-        .frame-item { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-bottom: 1px solid #E0E0E0; font-size: 12px; cursor: pointer; }
-        .frame-item:hover { background: #F5F5F5; }
+        .frame-item { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-bottom: 1px solid var(--border-list); font-size: 12px; cursor: pointer; }
+        .frame-item:hover { background: var(--bg-network-row-hover); }
         .frame-item.selected { background: #FFE0B0; border-left: 3px solid #CC2200; }
-        .frame-item .idx { color: #808080; font-size: 10px; width: 18px; flex-shrink: 0; }
+        .frame-item .idx { color: var(--text-muted); font-size: 10px; width: 18px; flex-shrink: 0; }
         .frame-item .mini-tube { display: inline-flex; gap: 0; flex-shrink: 0; pointer-events: none; }
-        .frame-item .mini-tube span { display: inline-block; width: 6px; height: 10px; font-size: 7px; text-align: center; color: #808080; }
-        .frame-item .mini-tube .dot { width: 10px; height: 10px; border: 1px solid #C0C0C0; display: inline-block; margin: 0 1px; }
+        .frame-item .mini-tube span { display: inline-block; width: 6px; height: 10px; font-size: 7px; text-align: center; color: var(--text-muted); }
+        .frame-item .mini-tube .dot { width: 10px; height: 10px; border: 1px solid var(--border-subtle); display: inline-block; margin: 0 1px; }
         .frame-item .mini-tube .dot.on { background: #CC2200; border-color: #CC2200; }
-        .frame-item .hex { font-family: monospace; font-size: 9px; color: #808080; flex: 1; }
-        .frame-item input[type="number"] { width: 52px; font-size: 11px; border: 2px solid #808080; padding: 1px 3px; font-family: monospace; }
+        .frame-item .hex { font-family: monospace; font-size: 9px; color: var(--text-muted); flex: 1; }
+        .frame-item input[type="number"] { width: 52px; font-size: 11px; border: 2px solid var(--border-input); padding: 1px 3px; font-family: monospace; background: var(--bg-input); color: var(--text-body); }
 
         .add-frame-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
-        .add-frame-row select { flex: 1; min-width: 80px; font-family: monospace; font-size: 11px; border: 2px solid #808080; padding: 3px; }
-        .add-frame-row input { width: 56px; font-family: monospace; font-size: 11px; border: 2px solid #808080; padding: 3px; }
+        .add-frame-row select { flex: 1; min-width: 80px; font-family: monospace; font-size: 11px; border: 2px solid var(--border-input); padding: 3px; background: var(--bg-input); color: var(--text-body); }
+        .add-frame-row input { width: 56px; font-family: monospace; font-size: 11px; border: 2px solid var(--border-input); padding: 3px; background: var(--bg-input); color: var(--text-body); }
 
         .grid { display: flex; flex-wrap: wrap; gap: 6px; }
         .grid .btn { flex: 1; min-width: 120px; font-size: 12px; padding: 8px; text-align: center; }
-        .grid .btn.playing { background: #808080; color: #FFF; }
+        .grid .btn.playing { background: var(--accent); color: var(--text-btn-active); }
 
-        .saved-item { display: flex; align-items: center; justify-content: space-between; padding: 5px 6px; border-bottom: 1px solid #E0E0E0; font-size: 12px; gap: 4px; }
+        .saved-item { display: flex; align-items: center; justify-content: space-between; padding: 5px 6px; border-bottom: 1px solid var(--border-list); font-size: 12px; gap: 4px; }
         .saved-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .saved-item .meta { font-size: 9px; color: #808080; flex-shrink: 0; }
+        .saved-item .meta { font-size: 9px; color: var(--text-muted); flex-shrink: 0; }
         .saved-item .actions { display: flex; gap: 3px; flex-shrink: 0; }
-        .hint { font-size: 10px; color: #808080; margin-top: 4px; }
+        .hint { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
         .btn { font-size: 12px; padding: 6px 12px; }
         .btn-sm { font-size: 10px; padding: 3px 8px; }
-        .btn-sel { background: #FFF; }
-        .btn-sel:hover { background: #E0E0E0; }
-        .btn-sel.active { background: #C0C0C0; }
+        .btn-sel { background: var(--bg-panel); }
+        .btn-sel:hover { background: var(--bg-body); }
+        .btn-sel.active { background: var(--bg-btn); }
 
-        .empty-msg { color: #C0C0C0; font-size: 12px; padding: 8px; text-align: center; }
+        .empty-msg { color: var(--text-btn-disabled); font-size: 12px; padding: 8px; text-align: center; }
         .section-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
-        .section-tabs .tab { font-size: 11px; padding: 6px 10px; border: 2px solid #808080; background: #FFF; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
-        .section-tabs .tab.active { background: #808080; color: #FFF; }
+        .section-tabs .tab { font-size: 11px; padding: 6px 10px; border: 2px solid var(--border-panel); background: var(--bg-panel); cursor: pointer; text-transform: uppercase; letter-spacing: 1px; color: var(--text-body); }
+        .section-tabs .tab.active { background: var(--accent); color: var(--text-btn-active); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
         .builtin-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
         .builtin-status { font-size: 11px; padding: 2px 6px; border-radius: 2px; }
         .builtin-status.override { background: #FFE0B0; color: #804000; }
-        .builtin-status.default { background: #E0E0E0; color: #606060; }
-        .builtin-preview { font-family: monospace; font-size: 11px; color: #808080; margin-top: 4px; word-break: break-all; }
+        .builtin-status.default { background: var(--bg-body); color: var(--text-muted); }
+        .builtin-preview { font-family: monospace; font-size: 11px; color: var(--text-muted); margin-top: 4px; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -96,11 +96,11 @@
             <button class="btn btn-primary" onclick="showPattern()">[ 显示 ]</button>
             <button class="btn" onclick="clearSegments()">[ 清空段 ]</button>
             <button class="btn" onclick="addFrame()">[ + 帧 ]</button>
-            <input type="number" id="newFrameDur" value="300" min="50" max="10000" style="width:52px; font-size:11px; border:2px solid #808080; padding:2px 4px; font-family:monospace;">
-            <span style="font-size:10px;color:#808080;">ms</span>
+            <input type="number" id="newFrameDur" value="300" min="50" max="10000" style="width:52px;font-size:11px;border:2px solid var(--border-input);padding:2px 4px;font-family:monospace;background:var(--bg-input);color:var(--text-body);">
+            <span style="font-size:10px;color:var(--text-muted);">ms</span>
         </div>
         <div id="frameEditRow" style="display:none; margin-top:8px; align-items:center; gap:6px; flex-wrap:wrap;">
-            <span style="font-size:12px;color:#808080;">← <span id="editFrameLabel"></span></span>
+            <span style="font-size:12px;color:var(--text-muted);">← <span id="editFrameLabel"></span></span>
             <button class="btn btn-primary" onclick="updateFrame()">[ 更新帧 ]</button>
             <button class="btn" onclick="cancelFrameEdit()">[ 取消 ]</button>
         </div>
@@ -108,7 +108,7 @@
 
     <!-- ===== 帧序列 ===== -->
     <div class="editor-panel">
-        <h2>[ 帧序列 ] <span id="frameCount" style="font-size:10px;color:#C0C0C0;">0 帧</span></h2>
+        <h2>[ 帧序列 ] <span id="frameCount" style="font-size:10px;color:var(--text-btn-disabled);">0 帧</span></h2>
         <div id="frameList" class="frame-list">
             <div class="empty-msg">暂无帧，从编辑器点击 [+ 帧] 添加</div>
         </div>
@@ -125,7 +125,7 @@
     <div class="editor-panel">
         <h2>[ 发送数字 ]</h2>
         <div style="display:flex;gap:6px;align-items:center;">
-            <input type="number" id="numberInput" value="1234" min="0" max="9999" style="flex:1;font-family:monospace;font-size:28px;text-align:center;letter-spacing:4px;border:2px solid #808080;padding:6px;background:#FFF;">
+            <input type="number" id="numberInput" value="1234" min="0" max="9999" style="flex:1;font-family:monospace;font-size:28px;text-align:center;letter-spacing:4px;border:2px solid var(--border-input);padding:6px;background:var(--bg-input);color:var(--text-body);">
             <button class="btn btn-primary" onclick="sendNumber()">[ 发送 ]</button>
             <button class="btn" onclick="recoverTime()">[ 恢复时间 ]</button>
         </div>
@@ -136,8 +136,8 @@
     <div class="editor-panel">
         <h2>[ 按键3动画 ]</h2>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <span style="font-size:12px;color:#808080;">短按按键3播放：</span>
-            <select id="btn3AnimSelect" style="flex:1;min-width:140px;font-family:monospace;font-size:11px;border:2px solid #808080;padding:4px;">
+            <span style="font-size:12px;color:var(--text-muted);">短按按键3播放：</span>
+            <select id="btn3AnimSelect" style="flex:1;min-width:140px;font-family:monospace;font-size:11px;border:2px solid var(--border-input);padding:4px;background:var(--bg-input);color:var(--text-body);">
                 <option value="off">— 无动作 —</option>
                 <optgroup label="内置动画">
                 <option value="builtin:0">Sunshine</option>
@@ -398,7 +398,7 @@ function renderFrames() {
             <span class="mini-tube">${miniHtml}</span>
             <span class="hex">${hex}</span>
             <input type="number" class="dur-input" value="${f.duration}" min="50" max="10000" data-idx="${i}">
-            <span style="font-size:9px;color:#808080;">ms</span>
+            <span style="font-size:9px;color:var(--text-muted);">ms</span>
             <button class="btn btn-sm" onclick="event.stopPropagation(); moveFrame(${i},-1)">[▲]</button>
             <button class="btn btn-sm" onclick="event.stopPropagation(); moveFrame(${i},1)">[▼]</button>
             <button class="btn btn-sm" onclick="event.stopPropagation(); removeFrame(${i})">[✕]</button>

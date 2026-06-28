@@ -54,7 +54,7 @@
                                 (f.size / 1024).toFixed(1) + 'KB';
                     html += '<tr>' +
                             '<td style="padding:4px;">' + f.name + '</td>' +
-                            '<td style="text-align:right;padding:4px;color:#888;">' + size + '</td>' +
+                            '<td style="text-align:right;padding:4px;color:var(--text-muted);">' + size + '</td>' +
                             '<td style="text-align:center;"><button class="btn btn-sm" ' +
                             'onclick="deleteFile(\'' + f.name.replace(/'/g, "\\'") + '\')">删除</button></td>' +
                             '</tr>';
