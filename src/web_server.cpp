@@ -13,6 +13,7 @@
 #include "pattern_manager.h"
 #include "button_handler.h"
 #include "remote_client.h"
+#include "weather_client.h"
 
 #include <WiFi.h>
 #include <ESPmDNS.h>
@@ -91,9 +92,12 @@ static String buildConfigJson() {
     doc["remoteUrl"]        = remote_get_worker_url();
     doc["remotePassword"]   = remote_get_password();
     doc["remoteState"]      = remote_get_state_str();
-    doc["workerUrl"]        = remote_get_http_url();
 
     doc["rtcTemp"]          = display_get_rtc_temp();
+
+    // API Key 状态（是否已配置，不暴露具体值）
+    doc["hasWeatherApiKey"] = (strlen(WEATHER_API_KEY) > 0);
+    doc["hasAmapApiKey"]    = (strlen(AMAP_API_KEY) > 0);
 
     String result;
     serializeJson(doc, result);
@@ -145,8 +149,11 @@ static void handleConfigPost(AsyncWebServerRequest *request, uint8_t *data, size
         display_set_btn3_anim(type, id);
     }
 
-    if (doc.containsKey("workerUrl")) {
-        remote_set_http_url(doc["workerUrl"].as<String>());
+    if (doc.containsKey("weatherApiKey")) {
+        weather_set_api_key(doc["weatherApiKey"].as<String>());
+    }
+    if (doc.containsKey("amapApiKey")) {
+        weather_set_amap_key(doc["amapApiKey"].as<String>());
     }
 
     if (doc.containsKey("remoteUrl")) {

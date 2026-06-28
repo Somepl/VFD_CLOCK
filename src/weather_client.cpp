@@ -23,6 +23,18 @@ static bool    weatherAvailable = false;
 // 错误标记
 static bool fetchRequested = false;
 
+// API Keys（从 NVS 加载，fallback 到 config.h 默认值）
+static String weatherApiKey;
+static String amapApiKey;
+
+static void load_api_keys() {
+    Preferences prefs;
+    prefs.begin(PREFS_NAMESPACE, true);
+    weatherApiKey = prefs.getString(PREFS_KEY_WEATHER_API, WEATHER_API_KEY);
+    amapApiKey    = prefs.getString(PREFS_KEY_AMAP_API, AMAP_API_KEY);
+    prefs.end();
+}
+
 // ============================================================
 // 非阻塞 HTTP 子状态机
 // ============================================================
@@ -153,12 +165,13 @@ static void save_temp_unit() {
 void weather_init() {
     Serial.println(F("[天气] 初始化..."));
     httpSslClient.setInsecure();
+    load_api_keys();
     load_temp_unit();
     fetchState = WEATHER_IDLE;
     fetchRequested = false;
     weatherAvailable = false;
 
-    Serial.printf("[天气] API Key: %s\n", WEATHER_API_KEY);
+    Serial.printf("[天气] API Key: %s\n", weatherApiKey.c_str());
     Serial.printf("[天气] 温度单位: %s\n", tempUnit == TEMP_CELSIUS ? "℃" : "℉");
 }
 
@@ -177,9 +190,9 @@ void weather_update() {
 
             // 第一步：IP 定位
 #if ENABLE_AMAP_LOCATION
-            if (strlen(AMAP_API_KEY) > 0) {
+            if (amapApiKey.length() > 0) {
                 Serial.printf("[天气] 使用高德IP定位\n");
-                String path = String("/v3/ip?key=") + AMAP_API_KEY;
+                String path = String("/v3/ip?key=") + amapApiKey;
                 http_start("restapi.amap.com", 80, path.c_str(), false, 4000);
             } else
 #endif
@@ -237,7 +250,7 @@ void weather_update() {
         // 第二步：获取天气数据
         {
             String path = "/v3/weather/now.json?key=";
-            path += WEATHER_API_KEY;
+            path += weatherApiKey;
             path += "&location=";
             path += cachedCity;
             path += "&language=zh-Hans&unit=c";
@@ -355,6 +368,24 @@ const char* weather_get_text() {
 
 WeatherFetchState weather_get_state() {
     return fetchState;
+}
+
+void weather_set_api_key(const String& key) {
+    weatherApiKey = key;
+    Preferences prefs;
+    prefs.begin(PREFS_NAMESPACE, false);
+    prefs.putString(PREFS_KEY_WEATHER_API, key);
+    prefs.end();
+    Serial.printf("[天气] API Key 已更新: %s\n", key.c_str());
+}
+
+void weather_set_amap_key(const String& key) {
+    amapApiKey = key;
+    Preferences prefs;
+    prefs.begin(PREFS_NAMESPACE, false);
+    prefs.putString(PREFS_KEY_AMAP_API, key);
+    prefs.end();
+    Serial.printf("[天气] 高德 Key 已更新: %s\n", key.c_str());
 }
 
 

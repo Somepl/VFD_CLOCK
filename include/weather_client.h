@@ -67,4 +67,10 @@ const char* weather_get_text();
 /** 获取天气获取状态 */
 WeatherFetchState weather_get_state();
 
+/** 设置天气 API Key（保存到 NVS） */
+void weather_set_api_key(const String& key);
+
+/** 设置高德 API Key（保存到 NVS） */
+void weather_set_amap_key(const String& key);
+
 #endif // WEATHER_CLIENT_H
