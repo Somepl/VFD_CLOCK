@@ -95,6 +95,18 @@
                     </select>
                 </div>
             </div>
+            <div class="row" style="flex-wrap:wrap;gap:4px 8px;">
+                <span class="label">天气 Key</span>
+                <span id="weatherKeyStatus" class="value" style="font-size:10px;color:var(--text-btn-disabled);">--</span>
+                <input type="password" id="weatherApiKey" class="input" placeholder="心知天气 API Key" style="flex:1;min-width:120px;font-size:11px;">
+                <button class="btn btn-sm" onclick="saveApiKeys()">[ 保存 ]</button>
+            </div>
+            <div class="row" style="flex-wrap:wrap;gap:4px 8px;">
+                <span class="label">地图 Key</span>
+                <span id="amapKeyStatus" class="value" style="font-size:10px;color:var(--text-btn-disabled);">--</span>
+                <input type="password" id="amapApiKey" class="input" placeholder="高德地图 API Key" style="flex:1;min-width:120px;font-size:11px;">
+                <button class="btn btn-sm" onclick="saveApiKeys()">[ 保存 ]</button>
+            </div>
         </div>
 
         <!-- 导航 -->
@@ -183,6 +195,19 @@
         saveConfig();
     }
 
+    async function saveApiKeys() {
+        const body = {};
+        const wKey = document.getElementById('weatherApiKey').value.trim();
+        const aKey = document.getElementById('amapApiKey').value.trim();
+        if (wKey) body.weatherApiKey = wKey;
+        if (aKey) body.amapApiKey = aKey;
+        if (!wKey && !aKey) return;
+        await fetchJson('/api/config', 'POST', body);
+        document.getElementById('weatherApiKey').value = '';
+        document.getElementById('amapApiKey').value = '';
+        loadConfig();
+    }
+
     async function loadConfig() {
         try {
             const cfg = await fetchJson('/api/config');
@@ -191,6 +216,8 @@
             document.getElementById('nightEnabled').checked = cfg.nightEnabled;
             document.getElementById('nightStart').value = cfg.nightStart;
             document.getElementById('nightEnd').value = cfg.nightEnd;
+            document.getElementById('weatherKeyStatus').textContent = cfg.hasWeatherApiKey ? '✅ 已配置' : '❌ 未设置';
+            document.getElementById('amapKeyStatus').textContent = cfg.hasAmapApiKey ? '✅ 已配置' : '❌ 未设置';
         } catch (e) {}
     }
 
