@@ -114,7 +114,7 @@ DEMO/
 
 | Button | Short press | Long press |
 |--------|-------------|------------|
-| btn1 (T0/GPIO4) | Toggle display on/off; if flashing → stop flash | (none) |
+| btn1 (T0/GPIO4) | Toggle display on/off; if flashing → stop flash | 按住持续调节亮度（步进5%/300ms，振荡折返），松开保存 |
 | btn2 (T2/GPIO2) | Weather fetch; if flashing → stop flash | Toggle temp unit ℃/℉ |
 | btn3 (T15/GPIO15) | Play configured animation; if flashing → stop flash | Toggle AP hotspot |
 

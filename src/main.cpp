@@ -34,14 +34,47 @@ static unsigned long cpuPrintTimer = 0;
 // 按键回调函数
 // ============================================================
 
-// --- 按键1：屏幕开关 ---
+// --- 按键1：开关屏 + 亮度调节 ---
 void on_button1_short_press() {
     if (display_is_flash_active()) { display_stop_flash(); return; }
     display_toggle_power();
 }
 
+// 亮度调节方向状态
+static bool btn1AdjustActive = false;
+static int8_t btn1CurrentDir  = 1;     // 本次调节方向 (bounce 时会翻转)
+static int8_t btn1NextDir     = 1;     // 下次调节起始方向 (每次长按后自动交替)
+
 void on_button1_long_press() {
     if (display_is_flash_active()) { display_stop_flash(); return; }
+    btn1AdjustActive = true;
+    btn1CurrentDir = btn1NextDir;          // 取预置方向
+    btn1NextDir    = -btn1NextDir;         // 下次调转
+    Serial.printf("[按键] 按键1长按：进入亮度调节 (%s)\n",
+                  btn1CurrentDir > 0 ? "递增" : "递减");
+}
+
+/** 在 loop() 中处理按键1按住调亮度 */
+static void handle_btn1_brightness_adjust() {
+    if (!btn1AdjustActive) return;
+
+    if (button_is_held(BUTTON_1)) {
+        static unsigned long lastStep = 0;
+        unsigned long now = millis();
+        if (now - lastStep >= 20) {
+            lastStep = now;
+            int cur = brightnessPct;
+            int next = constrain(cur + (1 * btn1CurrentDir), 1, 100);
+            if (next != cur) {
+                brightnessPct = next;
+                pwmBrightness = next;
+            }
+        }
+    } else {
+        btn1AdjustActive = false;
+        save_display_config_brightness();
+        Serial.printf("[按键] 亮度调节结束，最终: %d%%\n", brightnessPct);
+    }
 }
 
 // --- 按键2：天气 ---
@@ -170,6 +203,7 @@ void loop() {
 
     // --- 按键检测（每圈都跑）---
     button_update();
+    handle_btn1_brightness_adjust();
 
     // --- WiFi 状态机（每圈都跑）---
     wifi_update();

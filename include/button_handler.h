@@ -41,6 +41,9 @@ void button_init();
 /** 非阻塞轮询，每圈 loop() 都调用 */
 void button_update();
 
+/** 检测指定按键当前是否处于按住状态（去抖后，含长按） */
+bool button_is_held(ButtonID btn);
+
 /** 注册短按回调 */
 void button_on_short_press(ButtonID btn, ButtonCallback callback);
 

@@ -158,6 +158,11 @@ void button_update() {
     }
 }
 
+bool button_is_held(ButtonID btn) {
+    if (btn >= BUTTON_COUNT) return false;
+    return (buttons[btn].state == BTN_PRESSED || buttons[btn].state == BTN_LONG_PRESSED);
+}
+
 void button_on_short_press(ButtonID btn, ButtonCallback callback) {
     if (btn < BUTTON_COUNT) buttons[btn].onShort = callback;
 }
