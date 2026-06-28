@@ -51,22 +51,6 @@ static void number_to_digits(uint16_t num, uint8_t d[4]) {
     d[3] = num % 10;
 }
 
-/** 将温度值格式化为 4 位显示（正数" XX"，负数"-XX"）*/
-static void temperature_to_digits(int16_t temp, uint8_t d[4]) {
-    if (temp < -9) temp = -9;
-    if (temp > 99) temp = 99;
-    if (temp >= 0) {
-        d[0] = 0xFF;  d[1] = 0xFF;
-        d[2] = (temp >= 10) ? (temp / 10) : 0xFF;
-        d[3] = temp % 10;
-    } else {
-        int16_t absTemp = -temp;
-        d[0] = 0xFF;  d[1] = 0xFF;
-        d[2] = 0xFE;  // 负号标记
-        d[3] = absTemp;
-    }
-}
-
 static bool is_night_time(uint8_t currentHour) {
     if (!nightEnabled) return false;
     if (nightStart > nightEnd) {
