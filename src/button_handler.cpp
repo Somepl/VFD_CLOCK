@@ -101,6 +101,7 @@ static void update_baseline(int idx, uint16_t raw) {
     ButtonState &b = buttons[idx];
 
     if (raw >= b.baseline) {
+        // 上行：IIR 跟踪 + 噪声尖峰抑制
         int16_t diff = (int16_t)raw - (int16_t)b.baseline;
         if (diff < 0) diff = -diff;
         if (diff > TOUCH_NOISE_SPIKE) {
@@ -109,7 +110,17 @@ static void update_baseline(int idx, uint16_t raw) {
         int32_t newBase = (int32_t)b.baseline * (256 - TOUCH_IIR_ALPHA)
                         + (int32_t)raw * TOUCH_IIR_ALPHA;
         b.baseline = (uint16_t)(newBase / 256);
+    } else if (b.state == BTN_IDLE) {
+        // 下行：仅在 IDLE 状态下慢速追踪，防止基线单向爬升
+        int16_t diff = (int16_t)b.baseline - (int16_t)raw;
+        if (diff > TOUCH_NOISE_SPIKE) {
+            return;  // 大跳变跳过（如水滴/干扰）
+        }
+        int32_t newBase = (int32_t)b.baseline * (256 - TOUCH_DOWN_ALPHA)
+                        + (int32_t)raw * TOUCH_DOWN_ALPHA;
+        b.baseline = (uint16_t)(newBase / 256);
     }
+    // 按着时 (BTN_PRESSING/PRESSED/LONG_PRESSED) 不更新基线
 }
 
 void button_update() {

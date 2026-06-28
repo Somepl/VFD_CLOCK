@@ -37,8 +37,10 @@
 // --- 触摸灵敏度增强 ---
 #define TOUCH_MEASURE_CYCLES    4000    // 测量周期数（默认~1000，越大越灵敏）
 #define TOUCH_SLEEP_CYCLES      2000    // 休眠周期数（默认~1000）
-#define TOUCH_IIR_ALPHA         25      // 基线跟踪系数 (0-255, 越小越慢)
+#define TOUCH_IIR_ALPHA         25      // 上行跟踪系数 (0-255, 越小越慢)
                                          //   25 ≈ 0.1, 跟踪快；8 ≈ 0.03, 跟踪慢
+#define TOUCH_DOWN_ALPHA        8       // 下行跟踪系数，比上行慢 3 倍，仅 IDLE 时生效
+                                         //   防止基线单向爬升导致 false positive
 #define TOUCH_PRESS_MARGIN      1       // 按下判定＝基线－此值（亚克力 delta 仅 3-4，需用 1）
 #define TOUCH_NOISE_SPIKE       5       // 单次变化超过此值视为噪声，忽略（小 delta 场景用 5）
 #define TOUCH_AUTO_CAL_MS       3000    // 开机后延迟多久自动校准
