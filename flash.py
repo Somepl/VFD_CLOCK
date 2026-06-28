@@ -1,31 +1,51 @@
+#!/usr/bin/env python3
+"""MQTT flash notification debug script.
+
+Usage:
+    python flash.py start <topic>     # Send flash_start to <topic>
+    python flash.py stop  <topic>     # Send flash_stop to <topic>
+
+Examples:
+    python flash.py start clock/MyPassword/cmd
+    python flash.py stop  clock/MyPassword/cmd
+
+Topic format should match your device's MQTT configuration:
+    clock/{password}/cmd
+"""
+
+import sys
 import paho.mqtt.client as mqtt
 
 BROKER = "broker.emqx.io"
 PORT = 1883
-TOPIC = "clock/YOUR_MQTT_PASSWORD_HERE/cmd"
 
-def flash_start():
+def flash_start(topic: str):
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.connect(BROKER, PORT, 10)
-    client.publish(TOPIC, '{"cmd":"flash_start"}')
+    client.publish(topic, '{"cmd":"flash_start"}')
     client.disconnect()
-    print("[MQTT] flash_start sent")
+    print(f"[MQTT] flash_start sent to {topic}")
 
-def flash_stop():
+def flash_stop(topic: str):
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.connect(BROKER, PORT, 10)
-    client.publish(TOPIC, '{"cmd":"flash_stop"}')
+    client.publish(topic, '{"cmd":"flash_stop"}')
     client.disconnect()
-    print("[MQTT] flash_stop sent")
+    print(f"[MQTT] flash_stop sent to {topic}")
 
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) < 2:
-        print("Usage: python flash.py start|stop")
+    if len(sys.argv) < 3:
+        print(__doc__)
         sys.exit(1)
-    if sys.argv[1] == "start":
-        flash_start()
-    elif sys.argv[1] == "stop":
-        flash_stop()
+
+    cmd = sys.argv[1]
+    topic = sys.argv[2]
+
+    if cmd == "start":
+        flash_start(topic)
+    elif cmd == "stop":
+        flash_stop(topic)
     else:
-        print("Unknown command")
+        print(f"Unknown command: {cmd}")
+        print(__doc__)
+        sys.exit(1)

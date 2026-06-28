@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(find \"c:/Users/23100/Documents/Private Project/DEMO\" -type f -not -path '*/\\\\.*')"
-    ]
-  }
-}

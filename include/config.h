@@ -83,9 +83,13 @@
 
 // ============================================================
 // 天气 API（心知天气 + 高德IP定位）
+//
+// ⚠️ 安全提醒：API Key 不在代码中硬编码。
+//    通过设备网页 /api/config → weatherApiKey / amapApiKey 在线设置，
+//    持久化到 NVS 闪存，编译期默认值为空。
 // ============================================================
 
-#define WEATHER_API_KEY     "YOUR_WEATHER_API_KEY_HERE"                         // API 密钥
+#define WEATHER_API_KEY     ""                                          // 网页配置覆写，留空则天气不可用
 #define WEATHER_API_HOST    "http://api.seniverse.com/v3/weather/now.json" // 天气接口
 
 // IP 定位 — 支持三种方式（按优先级）：
@@ -93,7 +97,7 @@
 //   2. ip-api.com（国际，国内可能不通）
 //   3. 默认城市（Beijing）
 #define ENABLE_AMAP_LOCATION    1       // 1=启用高德, 0=禁用
-#define AMAP_API_KEY            "YOUR_AMAP_API_KEY_HERE"      // 高德 Web 服务 API Key（留空则用 ip-api.com）
+#define AMAP_API_KEY            ""                                     // 网页配置覆写，留空则用 ip-api.com
 #define AMAP_API_HOST           "https://restapi.amap.com/v3/ip"
 #define IP_LOCATION_HOST        "http://ip-api.com/json"          // 备用 IP 定位（高德未配置时使用）
 #define DEFAULT_CITY            "Beijing"       // 以上都失败时的默认城市

@@ -1,12 +1,25 @@
+# PlatformIO build
 .pio/
 .pioenvs/
 .piolibdeps/
+
+# Python
 __pycache__/
 *.pyc
+
+# Editor
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.claude/
+.omo/
+
+# OS
 .DS_Store
 Thumbs.db
+
+# Local config overrides (not committed)
+config.local.h
+*.local.*
