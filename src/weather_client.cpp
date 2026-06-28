@@ -36,7 +36,7 @@ static void load_api_keys() {
 }
 
 // ============================================================
-// 非阻塞 HTTP 子状态机
+// 非阻塞 HTTP 子状态机（固定缓冲区，无 String 堆碎片）
 // ============================================================
 
 #define HTTP_IDLE       0
@@ -50,20 +50,28 @@ static WiFiClientSecure httpSslClient;
 static bool httpUseSsl = false;
 static int8_t httpStage = HTTP_IDLE;
 static unsigned long httpTimeoutEnd = 0;
-static String httpHost;
-static int httpPort;
-static String httpPath;
-static String httpResponse;
+
+// 固定缓冲区替代 String，避免堆碎片
+static char httpHost[128];
+static int  httpPort;
+static char httpPath[512];
+static char httpResponse[768];
+static size_t httpResponseLen = 0;
 
 static void http_start(const char* host, int port, const char* path, bool useSsl, int timeoutMs) {
     httpTcpClient.stop();
     httpSslClient.stop();
     httpUseSsl = useSsl;
     httpStage = HTTP_CONNECT;
-    httpHost = host;
+
+    strncpy(httpHost, host, sizeof(httpHost) - 1);
+    httpHost[sizeof(httpHost) - 1] = '\0';
     httpPort = port;
-    httpPath = path;
-    httpResponse = String();
+    strncpy(httpPath, path, sizeof(httpPath) - 1);
+    httpPath[sizeof(httpPath) - 1] = '\0';
+
+    httpResponseLen = 0;
+    httpResponse[0] = '\0';
     httpTimeoutEnd = millis() + timeoutMs;
 }
 
@@ -81,7 +89,7 @@ static int http_poll() {
         } else if (c->available()) {
             httpStage = HTTP_RECV;
         } else {
-            if (c->connect(httpHost.c_str(), httpPort)) {
+            if (c->connect(httpHost, httpPort)) {
                 httpStage = HTTP_RECV;
             } else {
                 if (now >= httpTimeoutEnd) {
@@ -93,19 +101,26 @@ static int http_poll() {
             }
         }
         if (httpStage == HTTP_RECV) {
-            c->print(String("GET ") + httpPath + " HTTP/1.1\r\n"
-                     "Host: " + httpHost + "\r\n"
-                     "User-Agent: ESP32-Clock/1.0\r\n"
-                     "Connection: close\r\n\r\n");
+            // 用 snprintf 替代 String 拼接，零堆分配
+            char req[512];
+            snprintf(req, sizeof(req),
+                "GET %s HTTP/1.1\r\n"
+                "Host: %s\r\n"
+                "User-Agent: ESP32-Clock/1.0\r\n"
+                "Connection: close\r\n\r\n",
+                httpPath, httpHost);
+            c->print(req);
             httpTimeoutEnd = now + 3000;
         }
         return -1;
     }
 
     if (httpStage == HTTP_RECV) {
-        while (c->available()) {
-            httpResponse += (char)c->read();
+        // 固定缓冲区读取，超限截断
+        while (c->available() && httpResponseLen < sizeof(httpResponse) - 1) {
+            httpResponse[httpResponseLen++] = (char)c->read();
         }
+        httpResponse[httpResponseLen] = '\0';
         if (!c->connected()) {
             c->stop();
             httpStage = HTTP_DONE;
@@ -130,14 +145,15 @@ static int16_t celsius_to_fahrenheit(int16_t c) {
 }
 
 // ============================================================
-// 内部：提取 HTTP 响应体（跳过 HTTP 头部）
+// 内部：提取 HTTP 响应体（跳过 HTTP 头部），返回指针指向 httpResponse 内部
 // ============================================================
 
-static String extract_body(const String& raw) {
-    int idx = raw.indexOf("\r\n\r\n");
-    if (idx < 0) idx = raw.indexOf("\n\n");
-    if (idx < 0) return raw;
-    return raw.substring(idx + (raw[idx+2] == '\r' ? 4 : 2));
+static const char* extract_body(const char* raw) {
+    const char* idx = strstr(raw, "\r\n\r\n");
+    if (idx) return idx + 4;
+    idx = strstr(raw, "\n\n");
+    if (idx) return idx + 2;
+    return raw;
 }
 
 // ============================================================
@@ -192,8 +208,9 @@ void weather_update() {
 #if ENABLE_AMAP_LOCATION
             if (amapApiKey.length() > 0) {
                 Serial.printf("[天气] 使用高德IP定位\n");
-                String path = String("/v3/ip?key=") + amapApiKey;
-                http_start("restapi.amap.com", 80, path.c_str(), false, 4000);
+                char path[256];
+                snprintf(path, sizeof(path), "/v3/ip?key=%s", amapApiKey.c_str());
+                http_start("restapi.amap.com", 80, path, false, 4000);
             } else
 #endif
             {
@@ -212,8 +229,8 @@ void weather_update() {
         httpSslClient.stop();
 
         if (ret == 1) {
-            String body = extract_body(httpResponse);
-            Serial.printf("[天气] IP定位响应: %s\n", body.c_str());
+            const char* body = extract_body(httpResponse);
+            Serial.printf("[天气] IP定位响应: %s\n", body);
 
             DynamicJsonDocument doc(2048);
             DeserializationError err = deserializeJson(doc, body);
@@ -222,14 +239,15 @@ void weather_update() {
 #if ENABLE_AMAP_LOCATION
                 if (httpUseSsl) {
                     if (doc["status"] == "1") {
-                        String city = doc["city"].as<String>();
-                        String province = doc["province"].as<String>();
-                        cachedCity = (city.length() > 0) ? city : province;
+                        const char* city = doc["city"].as<const char*>();
+                        const char* province = doc["province"].as<const char*>();
+                        cachedCity = (city && strlen(city) > 0) ? city : (province ? province : "");
                     }
                 } else
 #endif
                 {
-                    cachedCity = doc["city"].as<String>();
+                    const char* city = doc["city"].as<const char*>();
+                    cachedCity = city ? city : "";
                 }
 
                 if (cachedCity.length() > 0) {
@@ -249,12 +267,11 @@ void weather_update() {
 
         // 第二步：获取天气数据
         {
-            String path = "/v3/weather/now.json?key=";
-            path += weatherApiKey;
-            path += "&location=";
-            path += cachedCity;
-            path += "&language=zh-Hans&unit=c";
-            http_start("api.seniverse.com", 80, path.c_str(), false, 3000);
+            char path[480];
+            snprintf(path, sizeof(path),
+                "/v3/weather/now.json?key=%s&location=%s&language=zh-Hans&unit=c",
+                weatherApiKey.c_str(), cachedCity.c_str());
+            http_start("api.seniverse.com", 80, path, false, 3000);
         }
         fetchState = WEATHER_FETCH_DATA;
         break;
@@ -268,8 +285,8 @@ void weather_update() {
         httpSslClient.stop();
 
         if (ret == 1) {
-            String body = extract_body(httpResponse);
-            Serial.printf("[天气] API响应: %s\n", body.c_str());
+            const char* body = extract_body(httpResponse);
+            Serial.printf("[天气] API响应: %s\n", body);
 
             DynamicJsonDocument doc(2048);
             DeserializationError err = deserializeJson(doc, body);
@@ -395,5 +412,3 @@ const char* weather_get_api_key() {
 const char* weather_get_amap_key() {
     return amapApiKey.c_str();
 }
-
-

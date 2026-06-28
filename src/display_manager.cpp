@@ -12,6 +12,11 @@
 #include "ntp_sync.h"
 
 // ============================================================
+// DS3231 I2C 地址
+// ============================================================
+#define DS3231_ADDRESS 0x68
+
+// ============================================================
 // 硬件实例（模块内全局）
 // ============================================================
 
@@ -61,14 +66,21 @@ static bool is_night_time(uint8_t currentHour) {
     return (currentHour >= nightStart && currentHour < nightEnd);
 }
 
+/** 快速检测 DS3231 是否在 I2C 总线上响应 */
+static bool i2c_ds3231_ping() {
+    Wire.beginTransmission(DS3231_ADDRESS);
+    return (Wire.endTransmission() == 0);
+}
+
 void display_init() {
     // 硬件层初始化（74HC595 + PWM 定时器）
     display_driver_init();
 
     Serial.println(F("[显示] 初始化..."));
 
-    // 初始化 I2C（DS3231）
+    // 初始化 I2C（DS3231），设置 50ms 超时防止总线挂死
     Wire.begin(I2C_SDA, I2C_SCL);
+    Wire.setTimeOut(50);
 
     // 检测 RTC
     if (rtc.begin()) {
@@ -108,6 +120,16 @@ void display_init() {
 
 static bool get_current_hh_mm(uint8_t &hour, uint8_t &minute) {
     if (rtcReady) {
+        // I2C 健康检查：DS3231 不响应则切换到软件 RTC 并尝试恢复总线
+        if (!i2c_ds3231_ping()) {
+            Serial.println(F("[显示] I2C 通信失败（DS3231 无响应），切换至软件 RTC"));
+            rtcReady = false;
+            Wire.end();              // 释放 I2C 总线
+            delay(10);
+            Wire.begin(I2C_SDA, I2C_SCL);  // 重新初始化
+            Wire.setTimeOut(50);
+            return sw_rtc_get_hh_mm(hour, minute);
+        }
         DateTime now = rtc.now();
         hour = now.hour();
         minute = now.minute();
@@ -626,6 +648,11 @@ void display_get_hh_mm(uint8_t &hour, uint8_t &minute) {
 
 float display_get_rtc_temp() {
     if (rtcReady) {
+        // 先检查 I2C 是否正常
+        if (!i2c_ds3231_ping()) {
+            Serial.println(F("[显示] RTC 温度读取失败：I2C 无响应"));
+            return -127.0f;
+        }
         return rtc.getTemperature();
     }
     return -127.0f;
@@ -635,11 +662,17 @@ void display_rtc_adjust(uint16_t year, uint8_t month, uint8_t day,
                         uint8_t hour, uint8_t min, uint8_t sec) {
     if (!rtcReady) {
         Wire.begin(I2C_SDA, I2C_SCL);
+        Wire.setTimeOut(50);
         if (!rtc.begin()) {
             Serial.println(F("[显示] RTC 不可用，无法校准"));
             return;
         }
         rtcReady = true;
+    }
+    // 先 ping 确保 I2C 正常
+    if (!i2c_ds3231_ping()) {
+        Serial.println(F("[显示] RTC 校准失败：I2C 无响应"));
+        return;
     }
     rtc.adjust(DateTime(year, month, day, hour, min, sec));
     Serial.printf("[显示] RTC 已校准: %04d-%02d-%02d %02d:%02d:%02d\n",

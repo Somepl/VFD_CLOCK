@@ -44,14 +44,16 @@ void on_button1_short_press() {
 static bool btn1AdjustActive = false;
 static int8_t btn1CurrentDir  = 1;     // 本次调节方向 (bounce 时会翻转)
 static int8_t btn1NextDir     = 1;     // 下次调节起始方向 (每次长按后自动交替)
+static unsigned long btn1StepTimer = 0; // 步进计时器
 
 void on_button1_long_press() {
     if (display_is_flash_active()) { display_stop_flash(); return; }
     btn1AdjustActive = true;
     btn1CurrentDir = btn1NextDir;          // 取预置方向
     btn1NextDir    = -btn1NextDir;         // 下次调转
-    Serial.printf("[按键] 按键1长按：进入亮度调节 (%s)\n",
-                  btn1CurrentDir > 0 ? "递增" : "递减");
+    btn1StepTimer  = millis();             // 重置步进计时，让第一步也等 20ms
+    Serial.printf("[按键] 按键1长按：进入亮度调节 (%s) 当前=%d%%\n",
+                  btn1CurrentDir > 0 ? "递增" : "递减", brightnessPct);
 }
 
 /** 在 loop() 中处理按键1按住调亮度 */
@@ -59,11 +61,13 @@ static void handle_btn1_brightness_adjust() {
     if (!btn1AdjustActive) return;
 
     if (button_is_held(BUTTON_1)) {
-        static unsigned long lastStep = 0;
         unsigned long now = millis();
-        if (now - lastStep >= 20) {
-            lastStep = now;
-            int cur = brightnessPct;
+        int cur = brightnessPct;
+        // 非线性步进间隔：低亮度慢 (78ms@1%) → 高亮度快 (20ms@100%)
+        unsigned long t = 100 - cur;  // 99 at 1%, 0 at 100%
+        unsigned long interval = 20 + (t * t * 60UL) / 10000;
+        if (now - btn1StepTimer >= interval) {
+            btn1StepTimer = now;
             int next = constrain(cur + (1 * btn1CurrentDir), 1, 100);
             if (next != cur) {
                 brightnessPct = next;

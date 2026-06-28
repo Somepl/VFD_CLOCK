@@ -313,7 +313,10 @@ void wifi_clear_credentials() {
 
     Preferences prefs;
     prefs.begin(PREFS_NAMESPACE, false);
-    prefs.clear();  // 清空整个命名空间
+    // 只删除 WiFi 凭据，不碰其他模块的 NVS 配置（亮度/触摸/API Key 等）
+    prefs.remove(PREFS_KEY_SSID);
+    prefs.remove(PREFS_KEY_PASS);
+    prefs.remove(PREFS_KEY_PAIRED);
     prefs.end();
 
     savedSSID = "";
@@ -346,5 +349,3 @@ String wifi_get_ip() {
 String wifi_get_saved_ssid() {
     return savedSSID;
 }
-
-
